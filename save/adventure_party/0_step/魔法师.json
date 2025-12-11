@@ -1,0 +1,49 @@
+{
+  "id": "mage",
+  "name": "莉娅·魔法师",
+  "description": "魔法师，擅长元素与控制法术，负责输出与策略支援。",
+  "attributes": {
+    "class": "魔法师",
+    "level": 12,
+    "gender": "女",
+    "vitals": {
+      "hp": 110,
+      "mp": 220,
+      "stamina": 90
+    },
+    "weapon": {
+      "main_hand": "秘银法杖",
+      "off_hand": "符文魔典",
+      "backup": "短杖",
+      "ranged": "元素飞弹"
+    },
+    "equipment": {
+      "robe": "奥术长袍",
+      "hat": "尖顶巫帽",
+      "boots": "轻便长靴",
+      "accessory": ["聚能项链", "精神指环"]
+    },
+    "skills": [
+      "火球术",
+      "冰霜屏障",
+      "雷霆链",
+      "法力护盾"
+    ],
+    "traits": ["冷静", "理性", "博学"],
+    "background": "出自学术城市，研究元素魔法，对知识充满好奇。",
+    "speaking_style": "分析精确，言简意赅，偶尔分享学术见解",
+    "state": {
+      "surface": {
+        "perceived_state": "显得专注且沉稳，正规划路径与施法准备。"
+      },
+      "hidden": {
+        "observer_state": "翻看魔典并在空中书写符号，观察队伍与地图。",
+        "inner_monologue": "要先探明地形与魔力流，不要在未知区域消耗过度。"
+      }
+    }
+  },
+  "theme": "adventure_party",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+

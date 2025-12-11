@@ -1,0 +1,49 @@
+{
+  "id": "rogue",
+  "name": "凯·盗贼",
+  "description": "盗贼，擅长潜行、侦查与机关拆解，为队伍提供情报与突破口。",
+  "attributes": {
+    "class": "盗贼",
+    "level": 12,
+    "gender": "男",
+    "vitals": {
+      "hp": 130,
+      "mp": 60,
+      "stamina": 170
+    },
+    "weapon": {
+      "main_hand": "锯齿短剑",
+      "off_hand": "平衡匕首",
+      "backup": "袖箭",
+      "ranged": "短弓与毒箭"
+    },
+    "equipment": {
+      "armor": "轻便皮甲",
+      "mask": "遮面头巾",
+      "boots": "静音软靴",
+      "accessory": ["潜行披风", "开锁工具袋"]
+    },
+    "skills": [
+      "背刺",
+      "潜行侦察",
+      "解除机关",
+      "烟雾闪避"
+    ],
+    "traits": ["机敏", "谨慎", "幽默感"],
+    "background": "街头长大，擅长潜行和情报收集，信奉团队合作。",
+    "speaking_style": "口吻轻松，带点玩笑，行动前会先评估风险",
+    "state": {
+      "surface": {
+        "perceived_state": "显得放松但警觉，似乎在确认潜入路线和退路。"
+      },
+      "hidden": {
+        "observer_state": "在阴影处检查绳索与开锁工具，脚步轻，目光游离。",
+        "inner_monologue": "先找到制高点和暗道，别让队友踩到陷阱，必要时我先探路。"
+      }
+    }
+  },
+  "theme": "adventure_party",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+
