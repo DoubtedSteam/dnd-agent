@@ -20,10 +20,12 @@ class AgentCLI:
     
     def __init__(self, base_url: str = "http://127.0.0.1:5000"):
         self.base_url = base_url
-        self.current_theme = "adventure_party"
+        self.current_theme = None  # 启动时不设置默认主题
         self.current_step = "0_step"
         self.player_role = None
         self.console = Console()
+        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+        self.characters_dir = os.path.join(self.base_dir, "characters")
     
     def _make_request(self, method: str, endpoint: str, data: dict = None) -> dict:
         """发送HTTP请求"""
@@ -272,6 +274,47 @@ class AgentCLI:
     def get_token_stats(self) -> dict:
         """获取token消耗统计"""
         return self._make_request("GET", "/api/token-stats")
+    
+    def get_background_intro(self, theme: str) -> Optional[str]:
+        """读取主题的背景介绍"""
+        scene_path = os.path.join(self.characters_dir, theme, "SCENE.md")
+        if not os.path.exists(scene_path):
+            return None
+        
+        try:
+            with open(scene_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # 提取背景介绍部分
+            # 查找 "## 背景介绍（启动时输出）" 到下一个 "##" 之间的内容
+            start_marker = "## 背景介绍（启动时输出）"
+            start_idx = content.find(start_marker)
+            if start_idx == -1:
+                return None
+            
+            # 找到下一个 "##" 的位置
+            next_section_idx = content.find("\n## ", start_idx + len(start_marker))
+            if next_section_idx == -1:
+                # 如果没有下一个章节，取到文件末尾
+                intro = content[start_idx + len(start_marker):].strip()
+            else:
+                intro = content[start_idx + len(start_marker):next_section_idx].strip()
+            
+            # 清理多余的换行和空白
+            lines = [line.strip() for line in intro.split('\n') if line.strip()]
+            return '\n'.join(lines)
+        except Exception as e:
+            return None
+    
+    def print_background_intro(self, theme: str):
+        """打印主题的背景介绍"""
+        intro = self.get_background_intro(theme)
+        if intro:
+            self.console.print("\n" + "="*80)
+            self.console.print("[bold cyan]📖 背景介绍[/bold cyan]")
+            self.console.print("="*80)
+            self.console.print(f"\n{intro}\n")
+            self.console.print("="*80 + "\n")
 
 
 def print_help():
@@ -321,7 +364,10 @@ def print_status(cli: AgentCLI):
     """打印当前状态"""
     console = cli.console
     console.print(f"\n[bold]当前状态：[/bold]")
-    console.print(f"  [bold]主题:[/bold] {cli.current_theme}")
+    if cli.current_theme:
+        console.print(f"  [bold]主题:[/bold] {cli.current_theme}")
+    else:
+        console.print(f"  [bold]主题:[/bold] [dim]（未选择，使用 'theme <主题名>' 选择剧本）[/dim]")
     console.print(f"  [bold]存档步骤:[/bold] {cli.current_step}")
     if cli.player_role:
         console.print(f"  [bold]玩家角色:[/bold] {cli.player_role}")
@@ -578,16 +624,15 @@ def main():
     
     console.print("[green]✅ 服务器连接成功[/green]")
     
-    # 检查当前主题是否存在，如果不存在则提示选择
+    # 列出可用主题，但不自动选择
     themes = cli.list_themes()
-    if themes and cli.current_theme not in themes:
-        console.print(f"\n[yellow]⚠️  当前主题 '{cli.current_theme}' 不存在[/yellow]")
-        console.print("[cyan]可用主题：[/cyan]")
+    if themes:
+        console.print(f"\n[cyan]可用主题（剧本）：[/cyan]")
         for i, theme in enumerate(themes, 1):
             console.print(f"  {i}. {theme}")
-        console.print("\n[dim]使用 'theme <主题名>' 切换主题[/dim]")
-        cli.current_theme = themes[0] if themes else "default"
-        console.print(f"[green]已自动切换到: {cli.current_theme}[/green]")
+        console.print("\n[dim]使用 'theme <主题名>' 选择并进入剧本[/dim]")
+    else:
+        console.print("\n[yellow]⚠️  没有找到可用的主题（剧本）[/yellow]")
     
     print_help()
     print_status(cli)
@@ -596,7 +641,11 @@ def main():
     while True:
         try:
             # 获取用户输入
-            user_input = input(f"\n[{cli.current_theme}/{cli.current_step}] > ").strip()
+            if cli.current_theme:
+                prompt = f"\n[{cli.current_theme}/{cli.current_step}] > "
+            else:
+                prompt = "\n[未选择剧本] > "
+            user_input = input(prompt).strip()
             
             if not user_input:
                 continue
@@ -621,10 +670,16 @@ def main():
                 print_token_stats(stats, cli.console)
             
             elif command == "saves" or command == "save":
+                if not cli.current_theme:
+                    cli.console.print("[red]❌ 请先选择剧本，使用 'theme <主题名>' 选择[/red]")
+                    continue
                 saves = cli.list_saves()
                 print_saves(saves, cli.console, cli.current_theme, cli.current_step)
             
             elif command == "clean" or command == "clear":
+                if not cli.current_theme:
+                    cli.console.print("[red]❌ 请先选择剧本，使用 'theme <主题名>' 选择[/red]")
+                    continue
                 if not args:
                     cli.console.print("[yellow]请指定要清理的内容[/yellow]")
                     cli.console.print("[dim]用法: clean <step> - 删除指定步骤[/dim]")
@@ -671,6 +726,9 @@ def main():
                             cli.console.print(f"[yellow]当前步骤已重置为: 0_step[/yellow]")
             
             elif command == "execute" or command == "e":
+                if not cli.current_theme:
+                    cli.console.print("[red]❌ 请先选择剧本，使用 'theme <主题名>' 选择[/red]")
+                    continue
                 if not args:
                     cli.console.print("[red]❌ 请提供指令，例如: execute 我们出发[/red]")
                     continue
@@ -679,6 +737,9 @@ def main():
                 print_execute_result(result, cli.console)
             
             elif command == "question" or command == "ask":
+                if not cli.current_theme:
+                    cli.console.print("[red]❌ 请先选择剧本，使用 'theme <主题名>' 选择[/red]")
+                    continue
                 if not args:
                     cli.console.print("[red]❌ 请提供问题，例如: question 队伍现在有多少人？[/red]")
                     continue
@@ -705,6 +766,9 @@ def main():
                         cli.console.print(f"  [dim]{feedback}[/dim]")
             
             elif command == "list" or command == "ls":
+                if not cli.current_theme:
+                    cli.console.print("[red]❌ 请先选择剧本，使用 'theme <主题名>' 选择[/red]")
+                    continue
                 characters = cli.list_characters(cli.current_theme)
                 print_characters(characters, cli.console)
             
@@ -746,6 +810,9 @@ def main():
                 cli.current_step = "0_step"  # 切换主题时重置到初始步骤
                 cli.console.print(f"[green]✅ 已切换到主题: {cli.current_theme}[/green]")
                 cli.console.print(f"[dim]存档步骤已重置为: 0_step[/dim]")
+                
+                # 输出背景介绍
+                cli.print_background_intro(cli.current_theme)
             
             elif command == "step" or command == "st":
                 if not args:

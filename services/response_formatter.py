@@ -95,35 +95,39 @@ class ResponseFormatter:
                 )
             else:
                 raise ValueError(f"不支持的API平台: {platform}")
+        except Exception as e:
+            # API调用失败，使用简单格式化
+            print(f"响应格式化API调用失败: {e}")
+            return self._simple_format(agent_responses)
+        
+        # 解析响应
+        try:
+            # 尝试提取JSON
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
             
-            # 解析响应
-            try:
-                # 尝试提取JSON
-                if "```json" in response_text:
-                    json_start = response_text.find("```json") + 7
-                    json_end = response_text.find("```", json_start)
-                    response_text = response_text[json_start:json_end].strip()
-                elif "```" in response_text:
-                    json_start = response_text.find("```") + 3
-                    json_end = response_text.find("```", json_start)
-                    response_text = response_text[json_start:json_end].strip()
-                
-                result = json.loads(response_text)
-                formatted_responses = result.get('formatted_responses', [])
-                summary = result.get('summary', '')
-                
-                return {
-                    'surface': {
-                        'responses': formatted_responses,
-                        'summary': summary
-                    },
-                    'hidden': {
-                        'raw_responses': agent_responses  # 保留原始响应供内部使用
-                    }
+            result = json.loads(response_text)
+            formatted_responses = result.get('formatted_responses', [])
+            summary = result.get('summary', '')
+            
+            return {
+                'surface': {
+                    'responses': formatted_responses,
+                    'summary': summary
+                },
+                'hidden': {
+                    'raw_responses': agent_responses  # 保留原始响应供内部使用
                 }
-            except json.JSONDecodeError:
-                # 如果解析失败，使用简单格式化
-                return self._simple_format(agent_responses)
+            }
+        except json.JSONDecodeError:
+            # 如果解析失败，使用简单格式化
+            return self._simple_format(agent_responses)
         except Exception as e:
             print(f"响应格式化失败: {e}")
             return self._simple_format(agent_responses)

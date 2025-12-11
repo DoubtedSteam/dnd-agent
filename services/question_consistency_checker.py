@@ -172,22 +172,32 @@ class QuestionConsistencyChecker:
                 token_tracker = None
                 operation = 'consistency_check'
             
-            if platform.lower() == 'deepseek':
-                response_text = self.chat_service._call_deepseek_api(
-                    [{"role": "system", "content": check_prompt},
-                     {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
-                    operation='consistency_check',
-                    context={'theme': theme, 'question': question[:50]}
-                )
-            elif platform.lower() == 'openai':
-                response_text = self.chat_service._call_openai_api(
-                    [{"role": "system", "content": check_prompt},
-                     {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
-                    operation='consistency_check',
-                    context={'theme': theme, 'question': question[:50]}
-                )
-            else:
-                raise ValueError(f"不支持的API平台: {platform}")
+            try:
+                if platform.lower() == 'deepseek':
+                    response_text = self.chat_service._call_deepseek_api(
+                        [{"role": "system", "content": check_prompt},
+                         {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
+                        operation='consistency_check',
+                        context={'theme': theme, 'question': question[:50]}
+                    )
+                elif platform.lower() == 'openai':
+                    response_text = self.chat_service._call_openai_api(
+                        [{"role": "system", "content": check_prompt},
+                         {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
+                        operation='consistency_check',
+                        context={'theme': theme, 'question': question[:50]}
+                    )
+                else:
+                    raise ValueError(f"不支持的API平台: {platform}")
+            except Exception as e:
+                # API调用失败，返回默认值
+                print(f"一致性检查API调用失败: {e}")
+                return 0.5, f"一致性检查失败: {str(e)}", {
+                    'concretized_info': {'surface': {}, 'hidden': {}},
+                    'scene_updates': {'surface': {}, 'hidden': {}},
+                    'major_events': [],
+                    'character_updates': {}
+                }
             
             # 解析响应
             try:

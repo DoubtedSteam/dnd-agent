@@ -1,6 +1,8 @@
 # 智能体平台
 
-一个功能完整的智能体对话平台，支持人物卡管理、角色对话和一致性检测。人物卡采用“一个角色一个配置文件”的方式存储在统一文件夹，便于版本化和备份。
+一个专为**跑团（TRPG）**设计的智能体对话平台，支持多智能体系统、剧本管理、角色对话和一致性检测。采用文件化存储（JSON/MD），便于版本控制和备份。
+
+> 🎲 **主要用途**：本平台专为跑团游戏设计，支持玩家作为GM（游戏主持人）或玩家角色，与多个AI智能体角色互动，推进剧情发展。每个角色都是独立的智能体，会根据场景状态和玩家指令做出响应，营造沉浸式的跑团体验。
 
 ## ✨ 功能特性
 
@@ -12,9 +14,10 @@
 
 ### 💬 智能对话
 - **多平台支持**：集成DeepSeek和OpenAI API
-- **上下文记忆**：自动维护对话历史，保持连贯性
 - **角色扮演**：基于人物设定生成符合角色的回复
 - **可配置平台**：每次对话可指定使用的API平台
+- **指令执行**：玩家的指令必须执行，但可能因环境因素失败
+- **执行反馈**：详细描述执行过程和结果，包括失败原因
 
 ### 🔍 一致性检测
 - **自动检测**：实时检测回复是否符合人物设定
@@ -23,18 +26,34 @@
 - **可配置开关**：支持启用/禁用检测功能
 
 ### 🤖 多智能体系统
-- **独立智能体**：每个角色作为独立的智能体
-- **并行处理**：所有智能体并行响应玩家指令
-- **环境交互**：智能体根据场景状态和指令生成响应
-- **状态管理**：自动更新角色状态和场景状态
-- **表里分离**：区分玩家可见信息和隐藏推演信息
-- **自动存档**：每次更新自动创建新存档步骤
+- **独立智能体**：每个角色作为独立的智能体，拥有自己的设定和状态
+- **并行处理**：所有智能体并行响应玩家指令，提高响应速度
+- **环境交互**：智能体根据场景状态、角色状态和玩家指令生成响应
+- **状态管理**：自动更新角色状态和场景状态，保留完整历史
+- **表里分离**：区分玩家可见信息（表）和隐藏推演信息（里）
+- **自动存档**：每次更新自动创建新存档步骤，支持回滚和查看历史
+- **响应格式化**：将智能体的JSON响应转换为适合玩家角色的自然文本
+
+### 📖 剧本系统
+- **场景管理**：每个剧本包含场景设定文件（SCENE.md）
+- **背景介绍**：启动剧本时自动显示背景介绍，增强代入感
+- **剧本切换**：支持多个剧本，可随时切换
+- **预设事件**：场景文件中可预设剧本事件，指导剧情发展
 
 ### ❓ 提问功能
 - **信息查询**：回答玩家问题，不推进游戏步骤
 - **上下文理解**：基于玩家角色、人物卡、环境信息回答
 - **快速响应**：只调用一次LLM，快速获取答案
-- **表里区分**：只回答玩家应该知道的信息
+- **表里区分**：只回答玩家应该知道的信息（表信息）
+- **一致性检查**：严格检查回答与历史信息的一致性
+- **自动更新**：从回答中提取具体化信息，自动更新角色卡
+
+### 💻 命令行界面（CLI）
+- **交互式界面**：友好的命令行交互体验
+- **进度显示**：实时显示执行进度和状态
+- **彩色输出**：使用Rich库提供美观的彩色输出
+- **主题切换**：轻松切换和管理不同剧本
+- **存档管理**：查看、删除和管理存档步骤
 
 ## 🚀 快速开始
 
@@ -119,7 +138,8 @@ python app.py
 python example_usage.py
 ```
 
-> 📖 更详细的快速开始指南，请查看 [QUICKSTART.md](QUICKSTART.md)
+> 📖 更详细的快速开始指南，请查看 [QUICKSTART.md](QUICKSTART.md)  
+> 💻 CLI使用指南，请查看 [CLI_README.md](CLI_README.md)
 
 ## 📚 API 接口文档
 
@@ -291,6 +311,102 @@ GET /api/characters/{character_id}/conversations
 ]
 ```
 
+### 多智能体指令执行
+
+```http
+POST /api/themes/{theme}/execute
+Content-Type: application/json
+```
+
+**请求体**：
+
+```json
+{
+  "instruction": "我们出发去遗迹",
+  "save_step": "0_step",
+  "platform": "deepseek",
+  "player_role": "冒险者小队队长"
+}
+```
+
+**参数说明**：
+- `instruction` (string, 必填): 玩家指令
+- `save_step` (string, 可选): 存档步骤，默认使用当前步骤
+- `platform` (string, 可选): API平台
+- `player_role` (string, 可选): 玩家角色，会从场景文件中自动提取
+
+**响应示例**：
+
+```json
+{
+  "surface": {
+    "responses": [
+      {
+        "character_name": "艾伦·勇者",
+        "formatted_text": "好的，我们出发！"
+      }
+    ],
+    "summary": "队伍开始向遗迹方向移动..."
+  },
+  "hidden": {
+    "execution_results": [
+      {
+        "character_name": "艾伦·勇者",
+        "execution_result": {
+          "success": true,
+          "actual_outcome": "成功移动到遗迹入口"
+        }
+      }
+    ]
+  },
+  "new_step": "1_step"
+}
+```
+
+### 提问功能
+
+```http
+POST /api/themes/{theme}/question
+Content-Type: application/json
+```
+
+**请求体**：
+
+```json
+{
+  "question": "队伍现在有多少人？",
+  "save_step": "0_step",
+  "platform": "deepseek"
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "answer": "队伍目前有4人：勇者、魔法师、牧师和盗贼。",
+  "consistency_check": {
+    "score": 0.95,
+    "feedback": "回答与历史信息一致"
+  },
+  "new_step": "1_step"
+}
+```
+
+### 主题管理
+
+```http
+GET /api/themes
+```
+
+获取所有可用的主题（剧本）列表。
+
+```http
+GET /api/themes/{theme}/saves
+```
+
+获取指定主题的所有存档步骤。
+
 ### 健康检查
 
 ```http
@@ -304,6 +420,14 @@ GET /api/health
   "status": "ok"
 }
 ```
+
+### Token统计
+
+```http
+GET /api/token-stats
+```
+
+获取当前会话的token消耗统计。
 
 ## 💻 使用示例
 
@@ -423,7 +547,7 @@ async function chat(characterId, message) {
 | `CONSISTENCY_CHECK_ENABLED` | 启用一致性检测 | `true` | 否 |
 | `CONSISTENCY_CHECK_API` | 检测使用的API平台 | `deepseek` | 否 |
 | `CHARACTER_CONFIG_DIR` | 人物卡文件夹 | `characters` | 否 |
-| `DATABASE_URL` | 数据库URL | `sqlite:///agent_platform.db` | 否 |
+| `SAVE_DIR` | 存档文件夹 | `save` | 否 |
 
 *至少需要配置一个API密钥（DeepSeek或OpenAI）
 
@@ -446,20 +570,42 @@ async function chat(characterId, message) {
 ```
 MyAgent/
 ├── app.py                      # Flask主应用，包含所有API路由
+├── cli.py                      # 命令行界面（CLI）
 ├── config.py                   # 配置管理模块
-├── models.py                   # 数据模型（Conversation）
 ├── requirements.txt            # Python依赖包列表
 ├── README.md                   # 项目文档（本文件）
 ├── QUICKSTART.md               # 快速开始指南
+├── CLI_README.md              # CLI使用指南
+├── CHARACTER_ATTRIBUTES.md     # 角色属性说明
+├── TOKEN_TRACKING.md           # Token追踪说明
 ├── example_usage.py            # 使用示例脚本
+├── start_cli.bat/sh            # CLI启动脚本
 ├── .gitignore                  # Git忽略文件
 ├── .env                        # 环境变量文件（需自行创建）
-├── characters/                 # 人物卡配置文件夹（每个角色一个JSON）
-└── services/
+├── characters/                 # 人物卡和剧本文件夹
+│   ├── {theme}/                 # 每个主题（剧本）一个文件夹
+│   │   ├── SCENE.md            # 场景设定（包含背景介绍）
+│   │   ├── CHARACTER_ATTRIBUTES.md  # 主题特定的属性说明
+│   │   └── {character_id}.json # 角色文件
+├── save/                       # 存档文件夹
+│   └── {theme}/                # 按主题分目录
+│       └── {step}/              # 每个步骤一个文件夹
+│           ├── SCENE.md        # 场景状态
+│           ├── {character_id}.json  # 角色状态
+│           └── HISTORY.json    # 历史记录
+├── conversations/              # 对话记录（JSON文件）
+└── services/                   # 服务模块
     ├── __init__.py
+    ├── agent.py                # 智能体服务
     ├── chat_service.py         # 对话服务（支持多平台API）
     ├── consistency_checker.py  # 一致性检测服务
-    └── character_store.py      # 人物卡文件存储
+    ├── character_store.py      # 人物卡文件存储
+    ├── multi_agent_coordinator.py  # 多智能体协调器
+    ├── question_service.py     # 提问服务
+    ├── environment_manager.py  # 环境管理器
+    ├── save_manager.py         # 存档管理器
+    ├── theme_manager.py        # 主题管理器
+    └── token_tracker.py        # Token追踪器
 ```
 
 ## 🔧 开发指南
@@ -474,18 +620,20 @@ MyAgent/
 
 修改 `services/consistency_checker.py` 中的 `check_consistency()` 方法，调整检测提示词和评分逻辑。
 
-### 数据库迁移
+### 数据存储
 
-项目使用SQLAlchemy ORM，数据库结构变更时：
+系统**不使用数据库**，所有数据以JSON/MD文件形式存储：
 
-```python
-# 删除旧数据库
-import os
-os.remove('agent_platform.db')
+- **人物卡**：`characters/{theme}/{character_id}.json`
+- **场景设定**：`characters/{theme}/SCENE.md`
+- **存档**：`save/{theme}/{step}/`（包含角色状态、场景状态、历史记录）
+- **对话记录**：`conversations/{character_id}.json`
 
-# 重新创建（会自动执行）
-python app.py
-```
+所有文件都是可读的文本格式，便于：
+- 版本控制（Git）
+- 手动编辑
+- 备份和恢复
+- 跨平台迁移
 
 ## 🐛 常见问题
 
@@ -516,14 +664,50 @@ python app.py
 ### Q: 系统使用数据库吗？
 
 **A**: 不使用。所有数据都存储在JSON/MD文件中：
-- 人物卡：`characters/{theme}/{character_id}.json`
-- 存档：`save/{theme}/{step}/`
-- 对话记录：`conversations/{character_id}.json`
-- 场景设定：`SCENE.md` 文件
+- **人物卡**：`characters/{theme}/{character_id}.json`
+- **存档**：`save/{theme}/{step}/`（包含角色状态、场景状态、历史记录）
+- **对话记录**：`conversations/{character_id}.json`
+- **场景设定**：`characters/{theme}/SCENE.md`（包含背景介绍、基础信息、剧本预设事件）
 
 这样设计便于阅读、修改和版本控制。
 
+### Q: 如何创建新剧本？
+
+**A**: 
+1. 在 `characters/` 目录下创建新文件夹（如 `my_story`）
+2. 创建 `SCENE.md` 文件，包含背景介绍和场景设定
+3. 创建角色JSON文件（如 `主角.json`）
+4. 可选：创建 `CHARACTER_ATTRIBUTES.md` 说明角色属性字段
+5. 使用 `theme my_story` 切换到新剧本
+
+### Q: 指令执行失败怎么办？
+
+**A**: 指令执行可能因环境因素失败（如墙壁太滑、体力不足等）。系统会：
+1. 详细描述执行过程
+2. 说明失败原因
+3. 返回实际结果（可能部分成功）
+4. 更新角色状态和环境状态
+
+### Q: 如何查看token消耗？
+
+**A**: 
+- **CLI**：使用 `tokens` 命令
+- **API**：调用 `GET /api/token-stats`
+- 统计包括总调用次数、总token数、按平台和操作类型分类的统计
+
 ## 📝 更新日志
+
+### v2.0.0 (最新)
+- ✨ 多智能体系统：每个角色作为独立智能体并行响应
+- ✨ 剧本系统：支持场景设定、背景介绍、预设事件
+- ✨ CLI界面：交互式命令行界面，支持进度显示和彩色输出
+- ✨ 提问功能：信息查询，不推进游戏步骤
+- ✨ 响应格式化：将JSON响应转换为自然文本
+- ✨ 玩家角色：支持定义玩家角色，智能体根据角色调整响应
+- ✨ Token追踪：自动跟踪和统计token消耗
+- ✨ 文件化存储：完全使用JSON/MD文件，不使用数据库
+- ✅ 指令执行：指令必须执行，但可能因环境因素失败
+- ✅ 自动存档：每次更新自动创建新存档步骤
 
 ### v1.0.0 (2024-01-01)
 - ✨ 初始版本发布
@@ -542,7 +726,7 @@ MIT License
 ## 🙏 致谢
 
 - [Flask](https://flask.palletsprojects.com/) - Web框架
-- [SQLAlchemy](https://www.sqlalchemy.org/) - ORM框架
+- [Rich](https://rich.readthedocs.io/) - 终端美化库
 - [DeepSeek](https://www.deepseek.com/) - AI API服务
 - [OpenAI](https://openai.com/) - AI API服务
 

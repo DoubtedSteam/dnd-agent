@@ -64,8 +64,9 @@ class ChatService:
         return None
     
     def _call_deepseek_api(self, messages: List[Dict], temperature: float = 0.7, 
-                           operation: str = "chat", context: Dict = None) -> str:
-        """调用DeepSeek API"""
+                           operation: str = "chat", context: Dict = None, 
+                           max_retries: int = 3) -> str:
+        """调用DeepSeek API（带重试机制）"""
         url = f"{self.config.DEEPSEEK_API_BASE}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.config.DEEPSEEK_API_KEY}",
@@ -78,10 +79,41 @@ class ChatService:
             "temperature": temperature
         }
         
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        response.raise_for_status()
-        result = response.json()
-        content = result['choices'][0]['message']['content']
+        # 重试机制
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                # 超时时间：第一次30秒，重试时增加到60秒
+                timeout = 60 if attempt > 0 else 30
+                response = requests.post(url, headers=headers, json=data, timeout=timeout)
+                response.raise_for_status()
+                result = response.json()
+                content = result['choices'][0]['message']['content']
+                
+                # 成功，跳出重试循环
+                break
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用超时，正在重试 ({attempt + 1}/{max_retries})...")
+                    import time
+                    time.sleep(2 * (attempt + 1))  # 指数退避
+                else:
+                    raise Exception(f"API调用超时，已重试{max_retries}次: {str(e)}")
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用失败，正在重试 ({attempt + 1}/{max_retries}): {str(e)}")
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    raise Exception(f"API调用失败，已重试{max_retries}次: {str(e)}")
+            except Exception as e:
+                # 其他错误直接抛出
+                raise
+        
+        if last_exception and 'content' not in locals():
+            raise Exception(f"API调用失败: {str(last_exception)}")
         
         # 记录LLM调用（如果记录器可用）
         usage = result.get('usage', {})
@@ -114,8 +146,9 @@ class ChatService:
         return content
     
     def _call_openai_api(self, messages: List[Dict], temperature: float = 0.7,
-                        operation: str = "chat", context: Dict = None) -> str:
-        """调用OpenAI API"""
+                        operation: str = "chat", context: Dict = None,
+                        max_retries: int = 3) -> str:
+        """调用OpenAI API（带重试机制）"""
         url = f"{self.config.OPENAI_API_BASE}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.config.OPENAI_API_KEY}",
@@ -128,10 +161,41 @@ class ChatService:
             "temperature": temperature
         }
         
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        response.raise_for_status()
-        result = response.json()
-        content = result['choices'][0]['message']['content']
+        # 重试机制
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                # 超时时间：第一次30秒，重试时增加到60秒
+                timeout = 60 if attempt > 0 else 30
+                response = requests.post(url, headers=headers, json=data, timeout=timeout)
+                response.raise_for_status()
+                result = response.json()
+                content = result['choices'][0]['message']['content']
+                
+                # 成功，跳出重试循环
+                break
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用超时，正在重试 ({attempt + 1}/{max_retries})...")
+                    import time
+                    time.sleep(2 * (attempt + 1))  # 指数退避
+                else:
+                    raise Exception(f"API调用超时，已重试{max_retries}次: {str(e)}")
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用失败，正在重试 ({attempt + 1}/{max_retries}): {str(e)}")
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    raise Exception(f"API调用失败，已重试{max_retries}次: {str(e)}")
+            except Exception as e:
+                # 其他错误直接抛出
+                raise
+        
+        if last_exception and 'content' not in locals():
+            raise Exception(f"API调用失败: {str(last_exception)}")
         
         # 记录LLM调用（如果记录器可用）
         usage = result.get('usage', {})

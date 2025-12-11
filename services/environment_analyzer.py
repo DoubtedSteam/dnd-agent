@@ -123,33 +123,43 @@ class EnvironmentAnalyzer:
                 )
             else:
                 raise ValueError(f"不支持的API平台: {platform}")
+        except Exception as e:
+            # API调用失败，返回空变化
+            print(f"环境分析API调用失败: {e}")
+            return {
+                'scene_changes': {
+                    'surface': {},
+                    'hidden': {}
+                },
+                'major_events': []
+            }
+        
+        # 解析响应
+        try:
+            # 尝试提取JSON
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
             
-            # 解析响应
-            try:
-                # 尝试提取JSON
-                if "```json" in response_text:
-                    json_start = response_text.find("```json") + 7
-                    json_end = response_text.find("```", json_start)
-                    response_text = response_text[json_start:json_end].strip()
-                elif "```" in response_text:
-                    json_start = response_text.find("```") + 3
-                    json_end = response_text.find("```", json_start)
-                    response_text = response_text[json_start:json_end].strip()
-                
-                result = json.loads(response_text)
-                return {
-                    'scene_changes': result.get('scene_changes', {'surface': {}, 'hidden': {}}),
-                    'major_events': result.get('major_events', [])
-                }
-            except json.JSONDecodeError:
-                # 如果解析失败，返回空变化
-                return {
-                    'scene_changes': {
-                        'surface': {},
-                        'hidden': {}
-                    },
-                    'major_events': []
-                }
+            result = json.loads(response_text)
+            return {
+                'scene_changes': result.get('scene_changes', {'surface': {}, 'hidden': {}}),
+                'major_events': result.get('major_events', [])
+            }
+        except json.JSONDecodeError:
+            # 如果解析失败，返回空变化
+            return {
+                'scene_changes': {
+                    'surface': {},
+                    'hidden': {}
+                },
+                'major_events': []
+            }
         except Exception as e:
             print(f"环境分析失败: {e}")
             return {

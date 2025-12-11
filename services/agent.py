@@ -108,18 +108,35 @@ class Agent:
             {"role": "user", "content": user_message}
         ]
         
-        if platform.lower() == 'deepseek':
-            response_text = self.chat_service._call_deepseek_api(
-                messages, operation='agent_response', 
-                context={'character_id': self.character_id, 'theme': self.theme}
-            )
-        elif platform.lower() == 'openai':
-            response_text = self.chat_service._call_openai_api(
-                messages, operation='agent_response',
-                context={'character_id': self.character_id, 'theme': self.theme}
-            )
-        else:
-            raise ValueError(f"不支持的API平台: {platform}")
+        try:
+            if platform.lower() == 'deepseek':
+                response_text = self.chat_service._call_deepseek_api(
+                    messages, operation='agent_response', 
+                    context={'character_id': self.character_id, 'theme': self.theme}
+                )
+            elif platform.lower() == 'openai':
+                response_text = self.chat_service._call_openai_api(
+                    messages, operation='agent_response',
+                    context={'character_id': self.character_id, 'theme': self.theme}
+                )
+            else:
+                raise ValueError(f"不支持的API平台: {platform}")
+        except Exception as e:
+            # API调用失败，返回错误响应
+            error_msg = f"API调用失败: {str(e)}"
+            print(f"[{self.character_name}] {error_msg}")
+            return {
+                'character_id': self.character_id,
+                'character_name': self.character_name,
+                'response': f"抱歉，我无法处理这个指令。{error_msg}",
+                'state_changes': {},
+                'attribute_changes': {},
+                'execution_result': {
+                    'success': False,
+                    'failure_reason': error_msg,
+                    'actual_outcome': '指令处理失败'
+                }
+            }
         
         # 解析响应
         try:
