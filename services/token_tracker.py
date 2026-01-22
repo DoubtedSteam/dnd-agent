@@ -12,6 +12,7 @@ class TokenTracker:
     def __init__(self):
         self.calls: List[Dict] = []
         self.session_start = datetime.now()
+        self.current_round_start_index = 0  # 当前轮次开始的调用索引
     
     def record_call(self, platform: str, model: str, usage: Dict, 
                    operation: str = "unknown", context: Dict = None):
@@ -93,6 +94,39 @@ class TokenTracker:
         """重置统计"""
         self.calls.clear()
         self.session_start = datetime.now()
+        self.current_round_start_index = 0
+    
+    def start_new_round(self):
+        """开始新的一轮（执行指令前调用）"""
+        self.current_round_start_index = len(self.calls)
+    
+    def get_current_round_stats(self) -> Dict:
+        """
+        获取当前轮次的统计信息
+        
+        Returns:
+            当前轮次统计信息字典
+        """
+        current_round_calls = self.calls[self.current_round_start_index:]
+        
+        if not current_round_calls:
+            return {
+                'calls': 0,
+                'tokens': 0,
+                'input_tokens': 0,
+                'output_tokens': 0
+            }
+        
+        total_tokens = sum(c['total_tokens'] for c in current_round_calls)
+        total_input = sum(c['input_tokens'] for c in current_round_calls)
+        total_output = sum(c['output_tokens'] for c in current_round_calls)
+        
+        return {
+            'calls': len(current_round_calls),
+            'tokens': total_tokens,
+            'input_tokens': total_input,
+            'output_tokens': total_output
+        }
     
     def get_recent_calls(self, limit: int = 10) -> List[Dict]:
         """获取最近的调用记录"""

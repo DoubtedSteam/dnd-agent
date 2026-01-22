@@ -1,0 +1,14 @@
+{
+  "scene_bindings": {
+    "scene_002": [
+      "monster_field_001"
+    ]
+  },
+  "room_bindings": {
+    "room_002_002": [
+      "monster_field_001",
+      "monster_field_002"
+    ]
+  }
+}
+

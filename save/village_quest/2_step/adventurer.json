@@ -1,0 +1,45 @@
+{
+  "id": "char_adventurer_001",
+  "name": "冒险者",
+  "description": "一位勇敢的冒险者，来到被魔物困扰的村庄，决心帮助村民清剿田野中的魔物。",
+  "type": "玩家角色",
+  "theme": "village_quest",
+  "attributes": {
+    "gender": "未设定",
+    "age": "成年",
+    "personality": ["勇敢", "正义感强", "乐于助人"],
+    "speaking_style": "语气坚定，行动果断",
+    "background": "一位经验丰富的冒险者，擅长战斗和探索",
+    "vitals": {
+      "hp": 100,
+      "mp": 50,
+      "stamina": 80
+    },
+    "weapon": {
+      "main_hand": "长剑",
+      "off_hand": "盾牌",
+      "backup": "短剑",
+      "ranged": null
+    },
+    "equipment": {
+      "armor": "皮甲",
+      "helmet": "皮帽",
+      "boots": "皮靴",
+      "accessory": []
+    },
+    "skills": ["剑术", "盾牌防御", "野外生存", "追踪"],
+    "traits": ["勇敢", "正义感", "冒险精神"],
+    "state": {
+      "surface": {
+        "perceived_state": "准备就绪，精神状态良好"
+      },
+      "hidden": {
+        "observer_state": "装备齐全，经验丰富",
+        "inner_monologue": "决心帮助村民，保护村庄安全"
+      }
+    }
+  },
+  "created_at": "2024-01-01T00:00:00",
+  "updated_at": "2024-01-01T00:00:00"
+}
+

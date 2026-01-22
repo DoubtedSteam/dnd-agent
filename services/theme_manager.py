@@ -15,24 +15,25 @@ class ThemeManager:
     
     def list_themes(self) -> List[str]:
         """
-        列出所有可用的主题
+        列出所有可用的主题（剧本）
         
         Returns:
             主题名称列表
         """
         themes = []
-        characters_dir = os.path.join(self.base_dir, self.config.CHARACTER_CONFIG_DIR)
+        themes_dir = os.path.join(self.base_dir, self.config.CHARACTER_CONFIG_DIR)
         
-        if not os.path.exists(characters_dir):
+        if not os.path.exists(themes_dir):
             return themes
         
-        # 遍历characters目录，每个子目录是一个主题
-        for item in os.listdir(characters_dir):
-            item_path = os.path.join(characters_dir, item)
+        # 遍历themes目录，每个子目录是一个主题
+        for item in os.listdir(themes_dir):
+            item_path = os.path.join(themes_dir, item)
             if os.path.isdir(item_path):
-                # 检查是否有SCENE.md文件（表示这是一个有效的主题）
+                # 检查是否有STORY_OVERVIEW.md文件（新剧本系统）或SCENE.md文件（旧系统）
+                story_overview_path = os.path.join(item_path, "STORY_OVERVIEW.md")
                 scene_path = os.path.join(item_path, "SCENE.md")
-                if os.path.exists(scene_path):
+                if os.path.exists(story_overview_path) or os.path.exists(scene_path):
                     themes.append(item)
         
         return sorted(themes)
@@ -48,6 +49,8 @@ class ThemeManager:
             是否存在
         """
         theme_dir = os.path.join(self.base_dir, self.config.CHARACTER_CONFIG_DIR, theme)
+        # 检查是否有STORY_OVERVIEW.md文件（新剧本系统）或SCENE.md文件（旧系统）
+        story_overview_path = os.path.join(theme_dir, "STORY_OVERVIEW.md")
         scene_path = os.path.join(theme_dir, "SCENE.md")
-        return os.path.exists(scene_path)
+        return os.path.exists(story_overview_path) or os.path.exists(scene_path)
 

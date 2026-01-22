@@ -4,6 +4,7 @@
 import json
 from typing import Dict, List
 from config import Config
+from services.agent import format_agent_response
 
 
 class ResponseAggregator:
@@ -25,39 +26,49 @@ class ResponseAggregator:
         """
         # 收集所有响应
         all_responses = []
-        all_state_changes = {}
-        all_attribute_changes = {}
         
         for resp in agent_responses:
+            if not resp or not isinstance(resp, dict):
+                continue
+            character_id = resp.get('character_id')
+            character_name = resp.get('character_name', '未知')
+            response = format_agent_response(resp.get('response', ''))
+            
+            if not character_id:
+                continue
+            
             all_responses.append({
-                'character_id': resp['character_id'],
-                'character_name': resp['character_name'],
-                'response': resp['response']
+                'character_id': character_id,
+                'character_name': character_name,
+                'response': response
             })
-            
-            if resp.get('state_changes'):
-                all_state_changes[resp['character_id']] = resp['state_changes']
-            
-            if resp.get('attribute_changes'):
-                all_attribute_changes[resp['character_id']] = resp['attribute_changes']
         
         # 分离表/里信息
         surface_responses = []
         hidden_info = {}
         
         for resp in agent_responses:
+            if not resp or not isinstance(resp, dict):
+                continue
+            character_id = resp.get('character_id')
+            character_name = resp.get('character_name', '未知')
+            response = format_agent_response(resp.get('response', ''))
+            hidden = resp.get('hidden', {})
+            inner_monologue = hidden.get('inner_monologue', '') if isinstance(hidden, dict) else ''
+            
+            if not character_id:
+                continue
+            
             # 表信息：玩家可见的响应
             surface_responses.append({
-                'character_name': resp['character_name'],
-                'response': resp['response']
+                'character_name': character_name,
+                'response': response
             })
             
-            # 里信息：隐藏的状态变化和执行结果
-            if resp.get('state_changes') or resp.get('execution_result'):
-                hidden_info[resp['character_id']] = {
-                    'state_changes': resp.get('state_changes', {}),
-                    'attribute_changes': resp.get('attribute_changes', {}),
-                    'execution_result': resp.get('execution_result', {})
+            # 里信息：隐藏的内心活动
+            if inner_monologue:
+                hidden_info[character_id] = {
+                    'inner_monologue': inner_monologue
                 }
         
         return {
@@ -66,8 +77,6 @@ class ResponseAggregator:
                 'summary': self._generate_surface_summary(surface_responses)
             },
             'hidden': {
-                'state_changes': all_state_changes,
-                'attribute_changes': all_attribute_changes,
                 'detailed_info': hidden_info
             }
         }
@@ -79,7 +88,12 @@ class ResponseAggregator:
         
         summary_parts = []
         for resp in responses:
-            summary_parts.append(f"{resp['character_name']}: {resp['response'][:50]}...")
+            if not resp or not isinstance(resp, dict):
+                continue
+            character_name = resp.get('character_name', '未知')
+            response = resp.get('response', '')
+            if response:
+                summary_parts.append(f"{character_name}: {response[:50]}...")
         
-        return "\n".join(summary_parts)
+        return "\n".join(summary_parts) if summary_parts else "暂无响应"
 

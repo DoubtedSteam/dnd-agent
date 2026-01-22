@@ -73,7 +73,7 @@ class ConsistencyChecker:
                 "Content-Type": "application/json"
             }
             data = {
-                "model": "deepseek-chat",
+                "model": self.config.DEEPSEEK_MODEL,
                 "messages": messages,
                 "temperature": 0.3  # 使用较低温度以获得更稳定的评估
             }
@@ -84,7 +84,23 @@ class ConsistencyChecker:
                 "Content-Type": "application/json"
             }
             data = {
-                "model": "gpt-3.5-turbo",
+                "model": self.config.OPENAI_MODEL,
+                "messages": messages,
+                "temperature": 0.3
+            }
+        elif platform.lower() == 'aizex':
+            # 处理URL，避免重复路径
+            base_url = self.config.AIZEX_API_BASE.rstrip('/')
+            if base_url.endswith('/chat/completions'):
+                url = base_url
+            else:
+                url = f"{base_url}/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.config.AIZEX_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": self.config.AIZEX_MODEL,
                 "messages": messages,
                 "temperature": 0.3
             }
@@ -125,50 +141,43 @@ class ConsistencyChecker:
         scene_content = self._load_scene(theme, save_step)
         
         # 构建检测提示词
-        check_prompt = f"""你是一个角色一致性检测专家。请评估以下角色回复是否符合人物设定和当前情境。
+        check_prompt = f"""# Role: 一致性检测器 (Consistency Checker)
 
-【信息来源：人物卡配置】
-=== 人物设定 ===
-人物描述：
-{character_description}
+评估角色回复是否符合设定。
 
-人物属性（结构化设定，仅用于参考，不要机械复述）：
-{json.dumps(character_attributes, ensure_ascii=False, indent=2)}
+---
 
-【信息来源：CHARACTER_ATTRIBUTES.md - 属性字段含义说明】
+### 1. 输入信息 (Input)
+
+**【人物卡】**
+- 描述: {character_description}
+- 属性: {json.dumps(character_attributes, ensure_ascii=False)}
+**【属性说明】**
 {attr_guide}
-"""
-        
-        if scene_content:
-            if save_step:
-                scene_source = f"save/{theme}/{save_step}/SCENE.md - 当前场景状态（存档）"
-            else:
-                scene_source = f"characters/{theme}/SCENE.md - 初始场景设定"
-            
-            check_prompt += f"""
-【信息来源：{scene_source}】
-=== 场景设定 ===
-{scene_content}
-"""
-        
-        check_prompt += f"""
-【信息来源：当前对话】
-用户消息: {user_message}
-角色回复: {latest_response}
-"""
-        
-        check_prompt += """
+{'\n**【场景】**\n' + scene_content if scene_content else ''}
 
-请从以下方面进行评估：
-1. 是否符合人物性格和设定
-2. 是否符合当前场景状态（时间、地点、背景、重大事件等）
-3. 是否有违和感或矛盾之处
+**【对话】**
+- 用户: {user_message}
+- 角色: {latest_response}
 
-请以JSON格式回复，格式如下：
-{
-    "score": 0.95,  // 一致性评分，0-1之间
-    "feedback": "回复符合角色设定，保持了角色的性格特点..."  // 详细反馈
-}
+---
+
+### 2. 评估要求 (Evaluation Requirements)
+
+评估以下方面：
+1. **性格设定**: 是否符合角色性格特点
+2. **场景状态**: 是否符合当前场景状态
+3. **违和感**: 是否有违和感或不一致的地方
+
+---
+
+### 3. 输出格式 (Output Format)
+
+输出JSON格式：
+{{
+    "score": 0.95,
+    "feedback": "反馈内容"
+}}
 """
         
         messages = [{"role": "user", "content": check_prompt}]

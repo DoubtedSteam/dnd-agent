@@ -66,7 +66,10 @@ class QuestionConsistencyChecker:
         # 加载角色信息（用于识别角色ID）
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         characters_info = []
-        characters_dir = os.path.join(base_dir, "characters", theme)
+        characters_dir = os.path.join(base_dir, "themes", theme, "characters")
+        # 如果新格式目录不存在，尝试旧格式（兼容）
+        if not os.path.exists(characters_dir):
+            characters_dir = os.path.join(base_dir, "themes", theme)
         if os.path.exists(characters_dir):
             for filename in os.listdir(characters_dir):
                 if filename.endswith(".json"):
@@ -96,70 +99,67 @@ class QuestionConsistencyChecker:
         
         current_scene_text = current_scene or "无当前场景信息"
         
-        check_prompt = f"""你是一个一致性检查专家。请检查提问回答是否与历史信息一致，并提取具体化的信息。
+        check_prompt = f"""# Role: 一致性检查器 (Consistency Checker)
 
-【当前场景信息】
+检查回答与历史一致性，提取具体化信息。
+
+---
+
+### 1. 输入信息 (Input)
+
+**【当前场景】**
 {current_scene_text}
+**【历史场景】**
 {history_text}
+**【角色】**
 {characters_text}
 
-【提问和回答】
-问题：{question}
-回答：{answer}
+**【问题】**
+{question}
+**【回答】**
+{answer}
 
-请完成以下任务：
+---
 
-1. **一致性检查**：检查回答是否与历史场景信息一致
-   - 是否有矛盾或冲突
-   - 是否与之前的事件、状态、设定冲突
-   - 是否引入了新的、与历史不符的信息
+### 2. 任务要求 (Task Requirements)
 
-2. **具体化信息提取**：从回答中提取具体化的信息
-   - 哪些抽象信息被具体化了
-   - 这些信息应该如何更新到场景中
-   - 区分表/里信息
+1. **一致性检查**: 是否有矛盾/冲突/与历史不符
+2. **具体化信息提取**: 抽象→具体，区分表/里
+3. **角色外貌/装备提取**: objective/subjective/inner
 
-3. **角色外貌和装备描述提取**：如果回答中明确化了角色的外貌或装备描述
-   - 提取外貌描述（客观描述、队友主观看到的、角色内心想法）
-   - 提取装备描述（客观描述、队友主观看到的、角色内心想法）
-   - 这些信息应该更新到对应角色的人物卡中
+---
 
-请以JSON格式回复：
+### 3. 输出格式 (Output Format)
+
+输出JSON格式：
 {{
-    "consistency_score": 0.95,  // 一致性评分，0-1之间
-    "consistency_feedback": "回答与历史信息一致，没有发现矛盾...",  // 一致性反馈
+    "consistency_score": 0.95,
+    "consistency_feedback": "反馈",
     "concretized_info": {{
-        "surface": {{
-            // 玩家可见的具体化信息，如：当前叙述、目标、资源等
-        }},
-        "hidden": {{
-            // 隐藏的具体化信息，如：潜在风险、隐藏目标等
-        }}
-    }},
-    "scene_updates": {{
-        // 建议的场景更新内容
         "surface": {{}},
         "hidden": {{}}
     }},
-    "major_events": [
-        // 如果有新的事件，列出事件列表
-    ],
+    "scene_updates": {{
+        "surface": {{}},
+        "hidden": {{}}
+    }},
+    "major_events": [],
     "character_updates": {{
-        // 角色外貌和装备描述的具体化信息
         "character_id": {{
             "appearance": {{
-                "objective": "客观的外貌描述（如身高、体型、肤色等）",
-                "subjective": "队友主观看到的外貌（如看起来如何、给人的感觉等）",
-                "inner": "角色内心关于外貌的想法（如对自己的外貌的感受等）"
+                "objective": "",
+                "subjective": "",
+                "inner": ""
             }},
             "equipment": {{
-                "objective": "客观的装备描述（如装备的具体外观、材质等）",
-                "subjective": "队友主观看到的装备（如装备给人的感觉、是否显眼等）",
-                "inner": "角色内心关于装备的想法（如对装备的重视程度、使用感受等）"
+                "objective": "",
+                "subjective": "",
+                "inner": ""
             }}
         }}
     }}
-}}"""
+}}
+"""
         
         platform = platform or self.config.DEFAULT_API_PLATFORM
         
@@ -176,14 +176,21 @@ class QuestionConsistencyChecker:
                 if platform.lower() == 'deepseek':
                     response_text = self.chat_service._call_deepseek_api(
                         [{"role": "system", "content": check_prompt},
-                         {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
+                         {"role": "user", "content": "检查一致性并提取信息。"}],
                         operation='consistency_check',
                         context={'theme': theme, 'question': question[:50]}
                     )
                 elif platform.lower() == 'openai':
                     response_text = self.chat_service._call_openai_api(
                         [{"role": "system", "content": check_prompt},
-                         {"role": "user", "content": "请检查一致性并提取具体化信息。"}],
+                         {"role": "user", "content": "检查一致性并提取信息。"}],
+                        operation='consistency_check',
+                        context={'theme': theme, 'question': question[:50]}
+                    )
+                elif platform.lower() == 'aizex':
+                    response_text = self.chat_service._call_aizex_api(
+                        [{"role": "system", "content": check_prompt},
+                         {"role": "user", "content": "检查一致性并提取信息。"}],
                         operation='consistency_check',
                         context={'theme': theme, 'question': question[:50]}
                     )

@@ -98,6 +98,13 @@ class QuestionService:
                     operation='question_answer',
                     context={'theme': theme, 'question': question[:50]}
                 )
+            elif platform.lower() == 'aizex':
+                answer = self.chat_service._call_aizex_api(
+                    [{"role": "system", "content": system_prompt},
+                     {"role": "user", "content": user_message}],
+                    operation='question_answer',
+                    context={'theme': theme, 'question': question[:50]}
+                )
             else:
                 raise ValueError(f"不支持的API平台: {platform}")
         except Exception as e:
@@ -213,26 +220,37 @@ class QuestionService:
         if player_role:
             player_role_info = f"\n【玩家角色】\n玩家扮演的角色：{player_role}\n- 请从玩家角色的视角来回答问题\n- 考虑玩家角色的身份、立场和可能知道的信息\n"
         
-        prompt = f"""你是一个游戏助手，负责回答玩家的问题。
+        prompt = f"""# Role: 游戏助手 (Game Assistant)
 
-【信息来源：SCENE.md - 场景设定】
+回答玩家问题，提供游戏世界信息。
+
+---
+
+### 1. 输入信息 (Input)
+
+**【场景】**
 {scene_content}
 {player_role_info}
-【信息来源：人物卡配置】
+**【角色】**
 {characters_text}
-
-【信息来源：CHARACTER_ATTRIBUTES.md - 属性字段含义说明】
+**【属性说明】**
 {attr_guide}
 
-=== 重要要求 ===
-1. 根据玩家角色、场景信息和人物卡信息来回答问题
-2. 从玩家角色的视角出发，考虑玩家角色应该知道什么信息
-3. 区分表/里信息：
-   - 表信息（surface）：玩家可见的信息，可以直接回答
-   - 里信息（hidden）：隐藏信息，不要直接暴露，但可以帮助你理解背景
-4. 回答要准确、有帮助，符合游戏世界的设定
-5. 如果问题涉及多个角色，可以综合多个角色的信息
-6. 不要推进游戏进度，只是回答问题
+---
+
+### 2. 回答要求 (Answer Requirements)
+
+1. **玩家视角**: 基于场景和角色信息回答，从玩家角色的视角出发
+2. **表/里区分**: 
+   - surface = 可见可答（玩家角色应该知道的信息）
+   - hidden = 隐藏不暴露（系统内部信息，不应透露）
+3. **准确性**: 准确符合设定，不推进游戏进度
+
+---
+
+### 3. 输出格式 (Output Format)
+
+直接输出回答文本（自然语言，不需要JSON格式）。
 """
         return prompt
 

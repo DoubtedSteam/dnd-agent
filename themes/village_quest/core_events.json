@@ -1,0 +1,147 @@
+{
+  "core_events": [
+    {
+      "id": "event_001",
+      "name": "接受清剿任务",
+      "description": "玩家在村庄广场接受村民的清剿任务",
+      "type": "core",
+      "associated_scenes": ["scene_001"],
+      "trigger_conditions": {
+        "time_condition": "在场景中停留超过5分钟（游戏内时间）",
+        "behavior_condition": "玩家指令包含\"接受\"、\"帮助\"、\"任务\"、\"委托\"等，或与村民对话",
+        "state_condition": "无特殊要求",
+        "plot_need": "需要推进剧情时"
+      },
+      "description_template": "年长的村民注意到你，走过来向你求助：\"冒险者，我们的田野被魔物侵扰，庄稼被毁，村民们都不敢去田里了。你能帮我们清剿这些魔物吗？我们会给予报酬的。\"",
+      "prerequisite": null,
+      "effects": {
+        "state_change": "获得任务目标：清剿田野中的魔物",
+        "scene_changes": "村民态度从担忧变为期待",
+        "character_changes": "获得任务目标\"清剿田野中的魔物\"",
+        "possible_transitions": ["scene_002"],
+        "stage_progression": "进入任务执行阶段",
+        "unlocked_events": ["田野探索事件"]
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家表现出帮助意愿或与村民互动时",
+        "how_to_trigger": "通过村民主动求助的方式",
+        "notes": "这是剧情的关键起点，应该自然地引导玩家接受任务"
+      }
+    },
+    {
+      "id": "event_002",
+      "name": "首次遭遇魔物",
+      "description": "玩家在田野中首次遭遇魔物",
+      "type": "core",
+      "associated_scenes": ["scene_002", "room_002_002"],
+      "trigger_conditions": {
+        "time_condition": "在场景中停留超过10分钟（游戏内时间）",
+        "location_condition": "在田野或田野深处",
+        "behavior_condition": "玩家指令包含\"前进\"、\"深入\"、\"探索\"等",
+        "state_condition": "无特殊要求",
+        "plot_need": "需要战斗推进剧情时"
+      },
+      "description_template": "突然，你听到前方传来低沉的咆哮声。一只巨大的魔物从庄稼中冲了出来！这是你第一次真正面对这些威胁村民的魔物。",
+      "prerequisite": null,
+      "effects": {
+        "state_change": "进入战斗状态",
+        "scene_changes": "进入战斗状态",
+        "character_changes": "准备战斗",
+        "possible_transitions": [],
+        "stage_progression": "进入战斗阶段",
+        "unlocked_events": ["击败魔物事件"]
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家深入田野时",
+        "how_to_trigger": "通过魔物主动攻击",
+        "notes": "这是首次遭遇，应该让玩家感受到威胁"
+      }
+    },
+    {
+      "id": "event_003",
+      "name": "发现魔物巢穴",
+      "description": "玩家在田野深处发现魔物的巢穴",
+      "type": "core",
+      "associated_scenes": ["room_002_002"],
+      "trigger_conditions": {
+        "time_condition": "在房间中停留超过5分钟（游戏内时间）",
+        "behavior_condition": "玩家指令包含\"调查\"、\"探索\"、\"观察\"、\"寻找\"等",
+        "state_condition": "已击败至少1只魔物",
+        "plot_need": "需要推进剧情时"
+      },
+      "description_template": "你仔细观察被破坏的谷仓，发现里面有一个隐藏的入口。从入口中传来更强烈的魔物气息，这里可能就是魔物的巢穴！",
+      "prerequisite": "击败田野中的魔物",
+      "effects": {
+        "state_change": "发现巢穴位置",
+        "scene_changes": "发现魔物巢穴位置",
+        "character_changes": "获得巢穴位置信息",
+        "possible_transitions": ["room_002_003"],
+        "stage_progression": "进入最终战斗阶段",
+        "unlocked_events": ["进入巢穴事件"]
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家击败魔物并探索时",
+        "how_to_trigger": "通过发现线索的方式",
+        "notes": "引导玩家发现巢穴，为最终战斗做准备"
+      }
+    },
+    {
+      "id": "event_004",
+      "name": "击败魔物首领",
+      "description": "玩家在魔物巢穴中击败魔物首领",
+      "type": "core",
+      "associated_scenes": ["room_002_003"],
+      "trigger_conditions": {
+        "time_condition": "在房间中停留超过3分钟（游戏内时间）",
+        "behavior_condition": "玩家指令包含\"战斗\"、\"攻击\"、\"击败\"等，或进入战斗",
+        "state_condition": "已进入魔物巢穴",
+        "plot_need": "需要完成最终战斗时"
+      },
+      "description_template": "在巢穴的深处，你遇到了魔物的首领。它比之前遇到的魔物更加巨大和凶猛，显然这就是威胁村庄的根源！",
+      "prerequisite": "进入魔物巢穴",
+      "effects": {
+        "state_change": "任务完成",
+        "scene_changes": "魔物首领被击败",
+        "character_changes": "完成任务，获得奖励",
+        "possible_transitions": ["scene_001"],
+        "stage_progression": "进入任务完成阶段",
+        "unlocked_events": ["返回村庄事件"]
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家在巢穴中准备战斗时",
+        "how_to_trigger": "通过最终战斗",
+        "notes": "这是最终战斗，应该具有挑战性但可以完成"
+      }
+    },
+    {
+      "id": "event_005",
+      "name": "完成任务返回村庄",
+      "description": "玩家完成任务后返回村庄",
+      "type": "core",
+      "associated_scenes": ["scene_001"],
+      "trigger_conditions": {
+        "time_condition": "在场景中停留超过2分钟（游戏内时间）",
+        "behavior_condition": "玩家指令包含\"返回\"、\"报告\"、\"完成任务\"等",
+        "state_condition": "已击败魔物首领",
+        "plot_need": "需要完成任务结算时"
+      },
+      "description_template": "你回到村庄，向村民报告了清剿魔物的好消息。村民们非常感激，村长代表全村向你表示感谢，并给予了你应得的报酬。",
+      "prerequisite": "击败魔物首领",
+      "effects": {
+        "state_change": "任务完成，获得奖励",
+        "scene_changes": "村庄恢复平静",
+        "character_changes": "获得任务奖励",
+        "possible_transitions": [],
+        "stage_progression": "进入任务结算阶段",
+        "unlocked_events": []
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家完成任务后返回村庄时",
+        "how_to_trigger": "通过向村民报告",
+        "notes": "这是任务的结尾，应该给玩家成就感"
+      }
+    }
+  ]
+}
+
+

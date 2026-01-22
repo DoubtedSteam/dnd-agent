@@ -3,6 +3,7 @@ import requests
 import json
 from typing import List, Dict, Optional
 from config import Config
+from services.api_failure_handler import api_failure_handler, APIConfirmationRequired
 
 DEFAULT_ATTR_GUIDE = """
 属性说明（用于参考，不要逐字复述）：
@@ -74,7 +75,7 @@ class ChatService:
         }
         
         data = {
-            "model": "deepseek-chat",
+            "model": self.config.DEEPSEEK_MODEL,
             "messages": messages,
             "temperature": temperature
         }
@@ -99,7 +100,15 @@ class ChatService:
                     import time
                     time.sleep(2 * (attempt + 1))  # 指数退避
                 else:
-                    raise Exception(f"API调用超时，已重试{max_retries}次: {str(e)}")
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用超时，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
             except requests.exceptions.RequestException as e:
                 last_exception = e
                 if attempt < max_retries - 1:
@@ -107,13 +116,34 @@ class ChatService:
                     import time
                     time.sleep(2 * (attempt + 1))
                 else:
-                    raise Exception(f"API调用失败，已重试{max_retries}次: {str(e)}")
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用失败，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
+            except APIConfirmationRequired:
+                # 重新抛出确认异常
+                raise
             except Exception as e:
                 # 其他错误直接抛出
                 raise
         
         if last_exception and 'content' not in locals():
-            raise Exception(f"API调用失败: {str(last_exception)}")
+            error_msg = f"API调用失败: {str(last_exception)}"
+            try:
+                should_continue = api_failure_handler.record_failure(error_msg)
+                if not should_continue:
+                    raise Exception("用户选择停止API调用")
+            except APIConfirmationRequired as confirm_ex:
+                raise confirm_ex
+            raise Exception(error_msg)
+        
+        # API调用成功，重置失败计数
+        api_failure_handler.record_success()
         
         # 记录LLM调用（如果记录器可用）
         usage = result.get('usage', {})
@@ -123,7 +153,7 @@ class ChatService:
                 platform='deepseek',
                 messages=messages,
                 response=content,
-                model='deepseek-chat',
+                model=self.config.DEEPSEEK_MODEL,
                 temperature=temperature,
                 usage=usage
             )
@@ -135,7 +165,124 @@ class ChatService:
             from services.token_tracker import token_tracker
             token_tracker.record_call(
                 platform='deepseek',
-                model='deepseek-chat',
+                model=self.config.DEEPSEEK_MODEL,
+                usage=usage,
+                operation=operation,
+                context=context or {}
+            )
+        except ImportError:
+            pass
+        
+        return content
+    
+    def _call_aizex_api(self, messages: List[Dict], temperature: float = 0.7,
+                        operation: str = "chat", context: Dict = None,
+                        max_retries: int = 3) -> str:
+        """调用AIZEX API（带重试机制）"""
+        # 处理URL，避免重复路径
+        base_url = self.config.AIZEX_API_BASE.rstrip('/')
+        if base_url.endswith('/chat/completions'):
+            url = base_url
+        else:
+            url = f"{base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.config.AIZEX_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": self.config.AIZEX_MODEL,
+            "messages": messages,
+            "temperature": temperature
+        }
+        
+        # 重试机制
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                # 超时时间：第一次30秒，重试时增加到60秒
+                timeout = 60 if attempt > 0 else 30
+                response = requests.post(url, headers=headers, json=data, timeout=timeout)
+                response.raise_for_status()
+                result = response.json()
+                content = result['choices'][0]['message']['content']
+                
+                # 成功，跳出重试循环
+                break
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用超时，正在重试 ({attempt + 1}/{max_retries})...")
+                    import time
+                    time.sleep(2 * (attempt + 1))  # 指数退避
+                else:
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用超时，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"API调用失败，正在重试 ({attempt + 1}/{max_retries}): {str(e)}")
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用失败，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
+            except APIConfirmationRequired:
+                # 重新抛出确认异常
+                raise
+            except Exception as e:
+                # 其他错误直接抛出
+                raise
+        
+        if last_exception and 'content' not in locals():
+            error_msg = f"API调用失败: {str(last_exception)}"
+            try:
+                should_continue = api_failure_handler.record_failure(error_msg)
+                if not should_continue:
+                    raise Exception("用户选择停止API调用")
+            except APIConfirmationRequired as confirm_ex:
+                raise confirm_ex
+            raise Exception(error_msg)
+        
+        # API调用成功，重置失败计数
+        api_failure_handler.record_success()
+        
+        # 记录LLM调用（如果记录器可用）
+        usage = result.get('usage', {})
+        try:
+            from tests.llm_call_logger import logger
+            if logger:
+                logger.log_call(
+                    platform='aizex',
+                    messages=messages,
+                    response=content,
+                    model=self.config.AIZEX_MODEL,
+                    temperature=temperature,
+                    usage=usage
+                )
+        except (ImportError, AttributeError):
+            pass  # 记录器不可用时忽略
+        
+        # 记录token消耗
+        try:
+            from services.token_tracker import token_tracker
+            token_tracker.record_call(
+                platform='aizex',
+                model=self.config.AIZEX_MODEL,
                 usage=usage,
                 operation=operation,
                 context=context or {}
@@ -156,7 +303,7 @@ class ChatService:
         }
         
         data = {
-            "model": "gpt-3.5-turbo",
+            "model": self.config.OPENAI_MODEL,
             "messages": messages,
             "temperature": temperature
         }
@@ -181,7 +328,15 @@ class ChatService:
                     import time
                     time.sleep(2 * (attempt + 1))  # 指数退避
                 else:
-                    raise Exception(f"API调用超时，已重试{max_retries}次: {str(e)}")
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用超时，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
             except requests.exceptions.RequestException as e:
                 last_exception = e
                 if attempt < max_retries - 1:
@@ -189,13 +344,34 @@ class ChatService:
                     import time
                     time.sleep(2 * (attempt + 1))
                 else:
-                    raise Exception(f"API调用失败，已重试{max_retries}次: {str(e)}")
+                    # 记录失败并检查是否需要用户确认
+                    error_msg = f"API调用失败，已重试{max_retries}次: {str(e)}"
+                    try:
+                        should_continue = api_failure_handler.record_failure(error_msg)
+                        if not should_continue:
+                            raise Exception("用户选择停止API调用")
+                    except APIConfirmationRequired as confirm_ex:
+                        raise confirm_ex
+                    raise Exception(error_msg)
+            except APIConfirmationRequired:
+                # 重新抛出确认异常
+                raise
             except Exception as e:
                 # 其他错误直接抛出
                 raise
         
         if last_exception and 'content' not in locals():
-            raise Exception(f"API调用失败: {str(last_exception)}")
+            error_msg = f"API调用失败: {str(last_exception)}"
+            try:
+                should_continue = api_failure_handler.record_failure(error_msg)
+                if not should_continue:
+                    raise Exception("用户选择停止API调用")
+            except APIConfirmationRequired as confirm_ex:
+                raise confirm_ex
+            raise Exception(error_msg)
+        
+        # API调用成功，重置失败计数
+        api_failure_handler.record_success()
         
         # 记录LLM调用（如果记录器可用）
         usage = result.get('usage', {})
@@ -205,7 +381,7 @@ class ChatService:
                 platform='openai',
                 messages=messages,
                 response=content,
-                model='gpt-3.5-turbo',
+                model=self.config.OPENAI_MODEL,
                 temperature=temperature,
                 usage=usage
             )
@@ -217,7 +393,7 @@ class ChatService:
             from services.token_tracker import token_tracker
             token_tracker.record_call(
                 platform='openai',
-                model='gpt-3.5-turbo',
+                model=self.config.OPENAI_MODEL,
                 usage=usage,
                 operation=operation,
                 context=context or {}
@@ -250,44 +426,36 @@ class ChatService:
         scene_content = self._load_scene(theme, save_step)
         
         # 构建系统提示词
-        system_prompt = f"""你是一个角色扮演助手。请严格按照以下设定进行对话。
+        system_prompt = f"""# Role: 角色扮演助手 (Role-Play Assistant)
 
-【信息来源：人物卡配置】
-=== 人物设定 ===
-人物描述：
-{character_description}
+生成角色对话回复。
 
-人物属性（结构化设定，仅用于参考，不要机械复述）：
-{json.dumps(character_attributes, ensure_ascii=False, indent=2)}
+---
 
-【信息来源：CHARACTER_ATTRIBUTES.md - 属性字段含义说明】
+### 1. 角色信息 (Character Information)
+
+**【人物卡】**
+- 描述: {character_description}
+- 属性: {json.dumps(character_attributes, ensure_ascii=False)}
+**【属性说明】**
 {attr_guide}
-"""
-        
-        if scene_content:
-            if save_step:
-                scene_source = f"save/{theme}/{save_step}/SCENE.md - 当前场景状态（存档）"
-            else:
-                scene_source = f"characters/{theme}/SCENE.md - 初始场景设定"
-            
-            system_prompt += f"""
-【信息来源：{scene_source}】
-=== 场景设定 ===
-{scene_content}
-"""
-        
-        system_prompt += """
-=== 重要要求 ===
-1. 始终保持角色的一致性，严格遵循人物设定中的性格、背景和说话风格
-2. 结合场景设定理解当前情境（时间、地点、背景、目标、重大事件等）
-3. 场景设定包含表/里两层信息，表信息是玩家可见的，里信息帮助你理解隐藏的推演信息
-4. 注意区分表/里信息：
-   - 表信息（surface）：玩家可见的直观状态，角色应该表现出的外在状态
-   - 里信息（hidden）：隐藏的推演信息，帮助你理解角色的真实想法、内心独白和客观观察状态
-5. 参考场景中的"重大事件"了解当前游戏进展，这些事件会影响角色的行为和对话
-6. 在生成对话时，要自然体现角色的内在想法，但不要直接暴露里信息
-7. 不要打破角色设定，自然地回应对话，让对话符合当前情境
-8. 不需要记忆之前的对话内容，仅根据当前场景状态和人物设定生成回复
+{'\n**【场景】**\n' + scene_content if scene_content else ''}
+
+---
+
+### 2. 回复要求 (Response Requirements)
+
+1. **角色一致性**: 严格遵循角色性格、背景和说话风格
+2. **情境理解**: 结合场景理解情境（时间/地点/目标/事件）
+3. **表/里区分**: surface=玩家可见，hidden=隐藏推演
+4. **自然表达**: 自然体现内在想法，不暴露里信息
+5. **简洁性**: 回复1-3句，简洁自然
+
+---
+
+### 3. 输出格式 (Output Format)
+
+直接输出回复文本（自然语言，不需要JSON格式）。
 """
         
         # 构建消息列表（不使用对话历史）
@@ -303,6 +471,9 @@ class ChatService:
         elif platform.lower() == 'openai':
             return self._call_openai_api(messages, operation='chat',
                                         context={'theme': theme, 'save_step': save_step})
+        elif platform.lower() == 'aizex':
+            return self._call_aizex_api(messages, operation='chat',
+                                       context={'theme': theme, 'save_step': save_step})
         else:
             raise ValueError(f"不支持的API平台: {platform}")
 

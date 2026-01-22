@@ -1,0 +1,132 @@
+{
+  "random_events": [
+    {
+      "id": "random_001",
+      "name": "打听消息",
+      "description": "玩家向村民打听关于魔物的消息",
+      "type": "random",
+      "associated_scenes": ["scene_001"],
+      "trigger_conditions": {
+        "behavior_condition": "玩家指令包含\"打听\"、\"询问\"、\"了解\"、\"消息\"等",
+        "state_condition": "未接受任务",
+        "random_factor": "60%概率",
+        "plot_need": "玩家想了解更多信息时"
+      },
+      "description_template": "村民告诉你：\"那些魔物主要在田野深处活动，它们很危险，已经有好几个村民受伤了。如果你要去，一定要小心。\"",
+      "effects": {
+        "scene_changes": "玩家获得关于魔物的信息",
+        "character_changes": "增加对魔物的了解",
+        "possible_transitions": [],
+        "unlocked_events": []
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家想了解情况时",
+        "how_to_trigger": "通过村民提供信息",
+        "notes": "提供有用的背景信息，但不强制推进剧情，不影响剧本阶段"
+      }
+    },
+    {
+      "id": "random_002",
+      "name": "发现村民的感谢",
+      "description": "村民对玩家的帮助表示感谢",
+      "type": "random",
+      "associated_scenes": ["scene_001"],
+      "trigger_conditions": {
+        "behavior_condition": "玩家指令包含\"帮助\"、\"协助\"等，或与村民友好互动",
+        "state_condition": "无特殊要求",
+        "random_factor": "40%概率",
+        "plot_need": "增加沉浸感时"
+      },
+      "description_template": "一位村民走过来，感激地说：\"谢谢你愿意帮助我们。如果你需要什么，尽管告诉我们。\"",
+      "effects": {
+        "scene_changes": "村民态度更加友好",
+        "character_changes": "可能获得村民的好感度",
+        "possible_transitions": [],
+        "unlocked_events": []
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家表现出友好行为时",
+        "how_to_trigger": "通过村民的感谢",
+        "notes": "增加沉浸感，但不影响主要剧情流程"
+      }
+    },
+    {
+      "id": "random_003",
+      "name": "遭遇魔物",
+      "description": "玩家在田野中遭遇魔物",
+      "type": "random",
+      "associated_scenes": ["scene_002", "room_002_002"],
+      "trigger_conditions": {
+        "time_condition": "在场景中停留超过10分钟（游戏内时间）",
+        "location_condition": "在田野深处或魔物巢穴",
+        "behavior_condition": "玩家指令包含\"前进\"、\"深入\"、\"前往\"等，或进入房间",
+        "state_condition": "无特殊要求",
+        "random_factor": "60%概率（在田野深处），90%概率（在魔物巢穴）",
+        "plot_need": "需要战斗推进剧情时"
+      },
+      "description_template": "突然，你听到前方传来低沉的咆哮声。一只巨大的魔物从庄稼中冲了出来！它有着锋利的爪子和凶狠的眼神，显然把你当作了猎物。",
+      "effects": {
+        "scene_changes": "进入战斗状态",
+        "character_changes": "准备战斗",
+        "possible_transitions": [],
+        "unlocked_events": ["击败魔物后可能触发发现巢穴事件"]
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家深入田野时",
+        "how_to_trigger": "通过魔物主动攻击",
+        "notes": "这是随机战斗事件，可以多次触发，增加挑战性"
+      }
+    },
+    {
+      "id": "random_004",
+      "name": "发现财宝",
+      "description": "玩家在田野中发现财宝",
+      "type": "random",
+      "associated_scenes": ["scene_002", "room_002_002"],
+      "trigger_conditions": {
+        "behavior_condition": "玩家指令包含\"搜索\"、\"寻找\"、\"探索\"等",
+        "state_condition": "无特殊要求",
+        "random_factor": "30%概率",
+        "plot_need": "增加探索奖励时"
+      },
+      "description_template": "你在田野的角落里发现了一个被遗弃的宝箱。打开一看，里面有一些金币和有用的物品。",
+      "effects": {
+        "scene_changes": "宝箱被打开",
+        "character_changes": "获得金币和物品",
+        "possible_transitions": [],
+        "unlocked_events": []
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家探索时",
+        "how_to_trigger": "通过发现宝箱",
+        "notes": "增加探索的奖励感，但不影响主要剧情"
+      }
+    },
+    {
+      "id": "random_005",
+      "name": "发现受伤的村民",
+      "description": "玩家发现并救助受伤的村民",
+      "type": "random",
+      "associated_scenes": ["scene_002", "room_002_002"],
+      "trigger_conditions": {
+        "behavior_condition": "玩家指令包含\"帮助\"、\"救助\"、\"治疗\"等",
+        "state_condition": "无特殊要求",
+        "random_factor": "25%概率",
+        "plot_need": "增加剧情深度时"
+      },
+      "description_template": "你发现一个受伤的村民躲在庄稼中。他告诉你：\"那些魔物太可怕了，我差点就回不来了。\"",
+      "effects": {
+        "scene_changes": "村民被救助",
+        "character_changes": "可能获得村民的感谢和额外信息",
+        "possible_transitions": [],
+        "unlocked_events": []
+      },
+      "director_hints": {
+        "when_to_trigger": "当玩家表现出帮助意愿时",
+        "how_to_trigger": "通过发现受伤村民",
+        "notes": "增加剧情深度和沉浸感"
+      }
+    }
+  ]
+}
+

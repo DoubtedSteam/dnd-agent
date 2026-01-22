@@ -1,0 +1,35 @@
+{
+  "armor": [
+    {
+      "id": "armor_leather",
+      "name": "皮甲",
+      "type": "light",
+      "ac": 11,
+      "max_dex_bonus": null,
+      "stealth_disadvantage": false,
+      "weight": 10,
+      "cost": 10
+    },
+    {
+      "id": "armor_chain_shirt",
+      "name": "链甲衫",
+      "type": "medium",
+      "ac": 13,
+      "max_dex_bonus": 2,
+      "stealth_disadvantage": false,
+      "weight": 20,
+      "cost": 50
+    },
+    {
+      "id": "armor_plate",
+      "name": "板甲",
+      "type": "heavy",
+      "ac": 18,
+      "max_dex_bonus": 0,
+      "stealth_disadvantage": true,
+      "weight": 65,
+      "cost": 1500
+    }
+  ]
+}
+

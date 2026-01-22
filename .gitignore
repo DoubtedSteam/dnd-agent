@@ -42,3 +42,24 @@ wheels/
 .DS_Store
 Thumbs.db
 
+# 日志文件
+*.log
+llm_calls.log
+
+# 存档数据（可选，如果不想提交存档）
+# save/
+
+# 对话数据（可选，如果不想提交对话）
+# conversations/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# Windows批处理文件（如果不想提交）
+# *.bat
+
+# 开发文档（可选，如果不想提交开发文档）
+# docs/dev/
+

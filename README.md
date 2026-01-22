@@ -10,7 +10,7 @@
 - **完整的CRUD操作**：创建、查看、更新、删除人物卡
 - **灵活的属性系统**：支持自定义人物属性（年龄、性格、背景等）
 - **详细的人设描述**：支持多段落、结构化的角色设定
-- **文件化存储**：每个人物对应一个 JSON 配置文件，按主题分目录存放于 `characters/{theme}/`
+- **文件化存储**：每个人物对应一个 JSON 配置文件，按主题分目录存放于 `themes/{theme}/characters/`
 
 ### 💬 智能对话
 - **多平台支持**：集成DeepSeek和OpenAI API
@@ -35,10 +35,13 @@
 - **响应格式化**：将智能体的JSON响应转换为适合玩家角色的自然文本
 
 ### 📖 剧本系统
-- **场景管理**：每个剧本包含场景设定文件（SCENE.md）
+- **JSON格式场景剧本**：场景和房间使用JSON格式，便于维护和版本控制
+- **场景网络**：支持场景之间的连接关系，定义场景转换规则
+- **事件系统**：核心事件和随机事件分离，支持事件驱动剧情
+- **怪物系统**：独立的怪物卡系统，支持场景/房间绑定
+- **分级场景**：支持一级场景（主场景）和二级场景（房间）
 - **背景介绍**：启动剧本时自动显示背景介绍，增强代入感
 - **剧本切换**：支持多个剧本，可随时切换
-- **预设事件**：场景文件中可预设剧本事件，指导剧情发展
 
 ### ❓ 提问功能
 - **信息查询**：回答玩家问题，不推进游戏步骤
@@ -60,7 +63,7 @@
 ### 前置要求
 
 - Python 3.8+
-- DeepSeek 或 OpenAI API 密钥
+- DeepSeek、OpenAI 或 AIZEX API 密钥（至少需要一个）
 
 ### 安装步骤
 
@@ -84,10 +87,15 @@ pip install -r requirements.txt
 # DeepSeek API（推荐）
 DEEPSEEK_API_KEY=sk-your-deepseek-key-here
 DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-chat-v3  # 可选，默认使用 deepseek-chat-v3
 
 # OpenAI API（可选）
 OPENAI_API_KEY=sk-your-openai-key-here
 OPENAI_API_BASE=https://api.openai.com/v1
+
+# AIZEX API（可选）
+AIZEX_API_KEY=sk-your-aizex-key-here
+AIZEX_API_BASE=https://aizex.top/v1
 
 # 默认API平台
 DEFAULT_API_PLATFORM=deepseek
@@ -96,13 +104,33 @@ DEFAULT_API_PLATFORM=deepseek
 CONSISTENCY_CHECK_ENABLED=true
 CONSISTENCY_CHECK_API=deepseek
 
-# 人物卡存放目录
-CHARACTER_CONFIG_DIR=characters
+# 主题（剧本）存放目录（默认：themes）
+CHARACTER_CONFIG_DIR=themes
 ```
 
-## 📂 人物卡存储规范
+## 📂 项目结构
 
-- 目录结构：`{CHARACTER_CONFIG_DIR}/{theme}/{character_id}.json`
+```
+MyAgent/
+├── themes/                    # 主题（剧本）目录
+│   └── {theme_name}/          # 主题名称
+│       ├── STORY_OVERVIEW.md  # 故事总览
+│       ├── scene_network.json # 场景连接网络
+│       ├── core_events.json   # 核心事件
+│       ├── random_events.json # 随机事件
+│       ├── monster_bindings.json # 怪物绑定关系
+│       ├── characters/        # 重要角色卡
+│       ├── monsters/          # 怪物卡
+│       └── scenarios/        # 场景剧本
+├── services/                  # 核心服务
+├── save/                      # 存档目录
+├── docs/                      # 文档目录
+└── tests/                     # 测试目录
+```
+
+### 人物卡存储规范
+
+- 目录结构：`themes/{theme}/characters/{character_id}.json`
 - 每个文件对应一个角色，包含 `id`、`name`、`description`、`attributes`、`theme`、时间戳
 - 通过API创建/更新/删除会自动维护对应的JSON文件
 - 推荐的属性结构示例：
@@ -113,16 +141,9 @@ CHARACTER_CONFIG_DIR=characters
   - `skills`: 技能数组
 - 详细字段含义见 `CHARACTER_ATTRIBUTES.md`，系统提示会将该结构化信息一并传给LLM。
 
-示例（冒险者小队）：
+### 主题创建
 
-```
-characters/
-└── adventure_party/
-    ├── 勇者.json
-    ├── 魔法师.json
-    ├── 牧师.json
-    └── 盗贼.json
-```
+详细的主题创建指南请参考：[themes/如何创建新主题.md](themes/如何创建新主题.md)
 
 4. **启动服务**
 
@@ -140,6 +161,8 @@ python example_usage.py
 
 > 📖 更详细的快速开始指南，请查看 [QUICKSTART.md](QUICKSTART.md)  
 > 💻 CLI使用指南，请查看 [CLI_README.md](CLI_README.md)
+> 📚 完整文档目录，请查看 [docs/README.md](docs/README.md)  
+> 🎨 创建新主题，请查看 [themes/如何创建新主题.md](themes/如何创建新主题.md)
 
 ## 📚 API 接口文档
 
@@ -148,7 +171,7 @@ python example_usage.py
 - **Base URL**: `http://localhost:5000`
 - **Content-Type**: `application/json`
 - **CORS**: 已启用，支持跨域请求
-- **人物卡存储**: 每个人物对应一个 JSON 文件，默认位于 `characters/`
+- **人物卡存储**: 每个人物对应一个 JSON 文件，默认位于 `themes/{theme}/characters/`
 
 ### 人物卡管理
 
@@ -270,7 +293,7 @@ Content-Type: application/json
 
 **参数说明**：
 - `message` (string, 必填): 用户消息
-- `platform` (string, 可选): API平台 (`deepseek` 或 `openai`)，默认使用配置的平台
+- `platform` (string, 可选): API平台 (`deepseek`、`openai` 或 `aizex`)，默认使用配置的平台
 
 **响应示例**：
 
@@ -543,6 +566,8 @@ async function chat(characterId, message) {
 | `DEEPSEEK_API_BASE` | DeepSeek API地址 | `https://api.deepseek.com/v1` | 否 |
 | `OPENAI_API_KEY` | OpenAI API密钥 | - | 否 |
 | `OPENAI_API_BASE` | OpenAI API地址 | `https://api.openai.com/v1` | 否 |
+| `AIZEX_API_KEY` | AIZEX API密钥 | - | 否 |
+| `AIZEX_API_BASE` | AIZEX API地址 | `https://aizex.top/v1` | 否 |
 | `DEFAULT_API_PLATFORM` | 默认API平台 | `deepseek` | 否 |
 | `CONSISTENCY_CHECK_ENABLED` | 启用一致性检测 | `true` | 否 |
 | `CONSISTENCY_CHECK_API` | 检测使用的API平台 | `deepseek` | 否 |

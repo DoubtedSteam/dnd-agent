@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import logging
 from services.chat_service import ChatService
 from services.consistency_checker import ConsistencyChecker
 from services.character_store import CharacterStore
@@ -8,8 +9,17 @@ from services.multi_agent_coordinator import MultiAgentCoordinator
 from services.question_service import QuestionService
 from services.theme_manager import ThemeManager
 from services.save_manager import SaveManager
+from services.script_manager import ScriptManager
+from services.environment_manager import EnvironmentManager
 from services.token_tracker import token_tracker
 from config import Config
+
+# 配置日志（输出到服务器控制台）
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -24,6 +34,8 @@ multi_agent_coordinator = MultiAgentCoordinator(Config())
 question_service = QuestionService(Config())
 theme_manager = ThemeManager(Config())
 save_manager = SaveManager(Config())
+script_manager = ScriptManager(Config())
+environment_manager = EnvironmentManager(Config())
 
 @app.route('/api/characters', methods=['GET'])
 def get_characters():
@@ -172,7 +184,11 @@ def execute_instruction(theme):
     platform = data.get('platform')  # 可选：指定API平台
     player_role = data.get('player_role')  # 可选：玩家扮演的角色
     
+    # 开始新的一轮统计
+    token_tracker.start_new_round()
+    
     try:
+        import traceback
         result = multi_agent_coordinator.process_instruction(
             instruction=instruction,
             theme=theme,
@@ -185,10 +201,50 @@ def execute_instruction(theme):
         if 'error' in result:
             return jsonify(result), 400
         
+        # 添加当前轮次和累计统计
+        current_round_stats = token_tracker.get_current_round_stats()
+        session_stats = token_tracker.get_session_stats()
+        
+        result['token_stats'] = {
+            'current_round': current_round_stats,
+            'session_total': {
+                'calls': session_stats['total_calls'],
+                'tokens': session_stats['total_tokens'],
+                'input_tokens': session_stats['total_input_tokens'],
+                'output_tokens': session_stats['total_output_tokens']
+            }
+        }
+        
         return jsonify(result), 200
         
     except Exception as e:
-        return jsonify({'error': f'执行失败: {str(e)}'}), 500
+        import traceback
+        from services.api_failure_handler import APIConfirmationRequired
+        
+        # 如果是API确认异常，返回特殊状态码
+        if isinstance(e, APIConfirmationRequired):
+            return jsonify({
+                'error': f'API调用已连续失败{e.failure_count}次，需要用户确认',
+                'error_type': 'APIConfirmationRequired',
+                'failure_count': e.failure_count,
+                'error_message': e.error_message,
+                'requires_confirmation': True
+            }), 428  # 428 Precondition Required
+        
+        error_detail = traceback.format_exc()
+        print(f"\n{'='*80}")
+        print(f"❌ 执行失败 - 详细错误信息:")
+        print(f"{'='*80}")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误消息: {str(e)}")
+        print(f"\n完整堆栈跟踪:")
+        print(error_detail)
+        print(f"{'='*80}\n")
+        return jsonify({
+            'error': f'执行失败: {str(e)}',
+            'error_type': type(e).__name__,
+            'traceback': error_detail
+        }), 500
 
 @app.route('/api/themes/<string:theme>/saves', methods=['GET'])
 def list_saves(theme):
@@ -305,6 +361,32 @@ def list_themes():
         return jsonify({'themes': themes}), 200
     except Exception as e:
         return jsonify({'error': f'获取主题列表失败: {str(e)}'}), 500
+
+@app.route('/api/themes/<string:theme>/initialize', methods=['POST'])
+def initialize_theme(theme):
+    """初始化主题（创建0_step并设置初始场景）"""
+    try:
+        # 初始化0_step
+        if save_manager._initialize_0_step(theme):
+            # 获取初始场景内容
+            scene_content = environment_manager.load_scene(theme, "0_step")
+            if scene_content:
+                return jsonify({
+                    'success': True,
+                    'step': '0_step',
+                    'scene_content': scene_content
+                }), 200
+            else:
+                return jsonify({
+                    'success': True,
+                    'step': '0_step',
+                    'scene_content': None,
+                    'message': '场景已初始化，但无法加载场景内容'
+                }), 200
+        else:
+            return jsonify({'error': '初始化失败'}), 500
+    except Exception as e:
+        return jsonify({'error': f'初始化主题失败: {str(e)}'}), 500
 
 @app.route('/api/token-stats', methods=['GET'])
 def get_token_stats():

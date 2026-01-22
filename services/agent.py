@@ -7,6 +7,35 @@ from services.chat_service import ChatService
 from config import Config
 
 
+def format_agent_response(response_data) -> str:
+    """
+    格式化Agent响应为文本
+    
+    Args:
+        response_data: response字段，可能是字符串或对象（包含dialogue和action_intent）
+    
+    Returns:
+        格式化后的文本字符串
+    """
+    if isinstance(response_data, str):
+        # 兼容旧格式：如果response是字符串，直接返回
+        return response_data
+    elif isinstance(response_data, dict):
+        # 新格式：response是对象，组合dialogue和action_intent
+        dialogue = response_data.get('dialogue', '')
+        action_intent = response_data.get('action_intent', '')
+        
+        parts = []
+        if dialogue:
+            parts.append(dialogue)
+        if action_intent:
+            parts.append(action_intent)
+        
+        return ' '.join(parts) if parts else ''
+    else:
+        return ''
+
+
 class Agent:
     """单个智能体，代表一个角色"""
     
@@ -28,7 +57,8 @@ class Agent:
     
     def process_instruction(self, instruction: str, scene_content: str, 
                            platform: str = None, save_step: Optional[str] = None,
-                           player_role: str = None, conversation_history: str = None) -> Dict:
+                           player_role: str = None, conversation_history: str = None,
+                           expected_event: Optional[str] = None) -> Dict:
         """
         处理玩家指令，生成响应
         
@@ -45,80 +75,38 @@ class Agent:
         # 构建智能体专用的系统提示词
         system_prompt = self._build_agent_prompt(scene_content, player_role, conversation_history)
         
-        # 构建用户消息（包含玩家指令）
-        user_message = f"""玩家指令：{instruction}
+        # 构建用户消息（包含玩家指令和预期事件）
+        event_note = ""
+        if expected_event:
+            event_note = f"\n【重要：预期事件】在执行指令过程中，如果遇到以下事件，必须立即停止并描述情况：\n{expected_event}\n所有角色应该在同一时刻遇到这个事件并停止。如果队伍在一起行动，要么都到达目标，要么都遇到事件，不能出现部分角色到达而部分角色遇到事件的情况。"
+        
+        # 确保instruction不为None
+        instruction = instruction or ""
+        
+        user_message = f"""指令：{instruction}{event_note}
 
-【重要】你必须执行玩家指令，但要注意：
-1. **指令必须执行**：玩家指令是必须执行的行动，不是建议或讨论
-   - 例如："爬上去" 意味着你要执行"爬"这个动作，而不是讨论是否要爬
-   - 例如："移动到遗迹入口" 意味着你要执行"移动"这个动作
-   
-2. **执行可能失败**：由于环境因素，指令执行可能失败
-   - 例如：爬墙时可能因为墙壁太滑而失败
-   - 例如：移动时可能因为障碍物而无法到达
-   - 如果执行失败，要在响应中明确说明失败的原因和结果
-   
-3. **执行过程要具体**：描述你如何执行指令
-   - 不要只说"好的，我执行了"，要描述具体的行动过程
-   - 例如："我开始向上攀爬，但墙壁太滑，尝试了几次后滑了下来"
-   - 例如："我向遗迹入口方向移动，但前方有深沟阻挡，无法直接通过"
+要求：
+1. 执行指令（可能因环境失败，需说明原因）
+2. 描述具体行动过程，不要只说"执行了"
+3. **如果遇到预期事件，必须立即停止，描述情况等待玩家**
+4. **队伍一致性：如果队伍在一起行动，所有角色应该在同一个时刻停止（要么都到达目标，要么都遇到事件）**
+5. 主动观察环境变化（天气/声音/地形等），简洁描述
+6. 严格遵循角色说话风格和性格特点，保持语气一致
 
-4. **⚠️ 重要：在遭遇事件时停止推进**
-   - **不要过快推进剧情**：只执行玩家指令中的具体行动，不要继续推进后续剧情
-   - **遭遇事件时停止**：如果执行过程中遇到任何需要玩家决策或反应的情况，应该立即停止，等待玩家下一步指令：
-     * 发现任何异常、变化或值得注意的情况
-     * 遇到需要选择或判断的情况
-     * 到达关键节点或触发重要事件
-     * 任何可能改变当前状态或需要玩家介入的情况
-   - **停止方式**：描述你发现了什么或遇到了什么，然后停止，不要继续行动
-   - 例如："我向目标方向移动，突然注意到前方有异常情况，我立即停下观察。"（停止，等待玩家指令）
-   - ❌ **错误示例**："我向目标移动，注意到异常情况后立即处理，然后继续前进，最终完成了任务。"（推进过快，没有停止）
-
-5. **主动观察和描述环境变化**
-   - **主动提示环境变化**：在执行指令的过程中，要主动观察和描述环境中的变化
-   - **不要等玩家提问**：如果环境中出现了值得注意的变化（如天气变化、声音、光线、物品、人物、地形变化等），应该主动在响应中描述
-   - **观察细节**：描述你看到的、听到的、感受到的环境细节，让玩家了解当前情况
-   - **环境描述示例**："我向目标方向移动，注意到天空开始变暗，远处传来雷声。前方的道路变得泥泞，需要小心前进。"
-   - **主动提示**：如果发现任何值得注意的情况，主动描述，不要等到玩家提问才说
-
-请根据你的角色设定、当前场景状态和玩家指令，生成以下内容：
-
-1. **响应**：你对玩家指令的回应和行动过程
-   - 必须执行指令，描述具体的行动
-   - **主动观察和描述环境变化**：在执行过程中，主动描述你观察到的环境变化和值得注意的情况
-   - **如果执行过程中遭遇事件，立即停止，描述遭遇的情况，等待玩家下一步指令**
-   - 如果执行失败，说明失败的原因和结果
-   - 如果执行成功且未遭遇事件，说明成功的结果，并描述当前的环境状态
-   
-2. **状态变化**：你的状态可能发生的变化（JSON格式）
-   - 如果状态有变化，请提供更新后的 state.surface.perceived_state
-   - 如果状态有变化，请提供更新后的 state.hidden.observer_state
-   - 如果状态有变化，请提供更新后的 state.hidden.inner_monologue
-   - 其他属性变化（如 vitals、equipment 等）
-   - 如果执行失败，可能影响体力、生命值等属性
-
-请以JSON格式回复：
+输出JSON：
 {{
-    "response": "你的响应内容（必须包含具体的行动过程和结果）",
-    "state_changes": {{
-        "surface": {{
-            "perceived_state": "更新后的直观状态（如果有变化）"
-        }},
-        "hidden": {{
-            "observer_state": "更新后的客观观察状态（如果有变化）",
-            "inner_monologue": "更新后的内心独白（如果有变化）"
-        }}
+    "response": {{
+        "dialogue": "角色的语言内容（如果此刻不说话则留空）",
+        "action_intent": "角色的肢体动作或行动尝试（不做结果判定）"
     }},
-    "attribute_changes": {{
-        // 其他属性变化，如 vitals: {{"hp": 180, "mp": 40, "stamina": 120}}
-        // 如果执行失败，可能消耗体力或受到伤害
-    }},
-    "execution_result": {{
-        "success": true/false,  // 指令是否成功执行
-        "failure_reason": "失败原因（如果失败）",  // 可选
-        "actual_outcome": "实际结果描述"  // 实际发生了什么
+    "hidden": {{
+        "inner_monologue": "基于性格的心理活动（用于解释为何做出上述行动，仅导演可见）"
     }}
-}}"""
+}}
+
+**注意**: 
+- state_changes、attribute_changes、execution_result 由导演评估统一决定，Agent 不需要提供
+- Agent 只需提供 response（包含dialogue和action_intent）和 hidden.inner_monologue（心理活动）"""
         
         # 调用LLM生成响应
         platform = platform or self.config.DEFAULT_API_PLATFORM
@@ -139,6 +127,11 @@ class Agent:
                     messages, operation='agent_response',
                     context={'character_id': self.character_id, 'theme': self.theme}
                 )
+            elif platform.lower() == 'aizex':
+                response_text = self.chat_service._call_aizex_api(
+                    messages, operation='agent_response',
+                    context={'character_id': self.character_id, 'theme': self.theme}
+                )
             else:
                 raise ValueError(f"不支持的API平台: {platform}")
         except Exception as e:
@@ -148,18 +141,29 @@ class Agent:
             return {
                 'character_id': self.character_id,
                 'character_name': self.character_name,
-                'response': f"抱歉，我无法处理这个指令。{error_msg}",
-                'state_changes': {},
-                'attribute_changes': {},
-                'execution_result': {
-                    'success': False,
-                    'failure_reason': error_msg,
-                    'actual_outcome': '指令处理失败'
+                'response': {
+                    'dialogue': f"抱歉，我无法处理这个指令。{error_msg}",
+                    'action_intent': ''
+                },
+                'hidden': {
+                    'inner_monologue': f'无法处理指令：{error_msg}'
                 }
             }
         
         # 解析响应
         try:
+            # 清理响应文本：移除推理标记及其内容
+            import re
+            # 移除各种推理标记及其内容（不区分大小写，支持多行）
+            # 移除 <think>...</think> 标记
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL | re.IGNORECASE)
+            # 移除 <think>...</think> 标记
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL | re.IGNORECASE)
+            # 移除单独的未闭合标记（如果没有闭合标签）
+            response_text = re.sub(r'<(think|redacted_reasoning)>.*?$', '', response_text, flags=re.DOTALL | re.IGNORECASE | re.MULTILINE)
+            # 移除 **Thinking about...** 这样的标记
+            response_text = re.sub(r'\*\*Thinking about.*?\*\*', '', response_text, flags=re.DOTALL | re.IGNORECASE)
+            
             # 尝试提取JSON
             if "```json" in response_text:
                 json_start = response_text.find("```json") + 7
@@ -171,25 +175,64 @@ class Agent:
                 response_text = response_text[json_start:json_end].strip()
             
             result = json.loads(response_text)
+            
+            # 处理response字段（可能是字符串或对象）
+            response_data = result.get('response', {})
+            if isinstance(response_data, str):
+                # 兼容旧格式：如果response是字符串，转换为新格式
+                response_obj = {
+                    'dialogue': response_data,
+                    'action_intent': ''
+                }
+            elif isinstance(response_data, dict):
+                # 新格式：response是对象，只提取存在的字段
+                response_obj = {
+                    'dialogue': response_data.get('dialogue', ''),
+                    'action_intent': response_data.get('action_intent', '')
+                }
+            else:
+                response_obj = {
+                    'dialogue': '',
+                    'action_intent': ''
+                }
+            
+            # 处理hidden字段，只提取存在的字段
+            hidden_data = result.get('hidden', {})
+            if isinstance(hidden_data, dict):
+                hidden_obj = {
+                    'inner_monologue': hidden_data.get('inner_monologue', '')
+                }
+            else:
+                hidden_obj = {
+                    'inner_monologue': ''
+                }
+            
             return {
                 'character_id': self.character_id,
                 'character_name': self.character_name,
-                'response': result.get('response', ''),
-                'state_changes': result.get('state_changes', {}),
-                'attribute_changes': result.get('attribute_changes', {}),
-                'execution_result': result.get('execution_result', {
-                    'success': True,
-                    'actual_outcome': '指令已执行'
-                })
+                'response': response_obj,
+                'hidden': hidden_obj
             }
         except json.JSONDecodeError:
-            # 如果解析失败，返回原始响应
+            # 如果解析失败，清理响应文本后返回
+            import re
+            # 再次清理，确保没有推理标记
+            cleaned_response = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL | re.IGNORECASE)
+            cleaned_response = re.sub(r'<think>.*?</think>', '', cleaned_response, flags=re.DOTALL | re.IGNORECASE)
+            cleaned_response = re.sub(r'<(think|redacted_reasoning)>.*?$', '', cleaned_response, flags=re.DOTALL | re.IGNORECASE | re.MULTILINE)
+            cleaned_response = re.sub(r'\*\*Thinking about.*?\*\*', '', cleaned_response, flags=re.DOTALL | re.IGNORECASE)
+            cleaned_response = cleaned_response.strip()
+            
             return {
                 'character_id': self.character_id,
                 'character_name': self.character_name,
-                'response': response_text,
-                'state_changes': {},
-                'attribute_changes': {}
+                'response': {
+                    'dialogue': cleaned_response,
+                    'action_intent': ''
+                },
+                'hidden': {
+                    'inner_monologue': ''
+                }
             }
     
     def _build_agent_prompt(self, scene_content: str, player_role: str = None, 
@@ -214,42 +257,88 @@ class Agent:
         if conversation_history:
             history_info = f"\n{conversation_history}\n"
         
-        prompt = f"""你是一个角色扮演智能体。你代表角色：{self.character_name}
+        # 提取关键的性格和说话风格信息
+        traits = self.attributes.get('traits', [])
+        speaking_style = self.attributes.get('speaking_style', '')
+        background = self.attributes.get('background', '')
+        
+        traits_text = f"性格特点：{', '.join(traits) if isinstance(traits, list) else traits}" if traits else ""
+        speaking_style_text = f"说话风格：{speaking_style}" if speaking_style else ""
+        background_text = f"背景：{background}" if background else ""
+        
+        # 精简角色特征部分
+        style_key = ""
+        if traits or speaking_style:
+            style_parts = []
+            if traits:
+                style_parts.append(f"性格：{', '.join(traits) if isinstance(traits, list) else traits}")
+            if speaking_style:
+                style_parts.append(f"说话：{speaking_style}")
+            style_key = f"\n【核心特征】{' | '.join(style_parts)}\n- 严格遵循说话风格和性格，保持语气一致，禁止通用化语言\n"
+        
+        prompt = f"""# Role: 跑团角色智能体 (TRPG Character Agent)
 
-【信息来源：人物卡配置】
-=== 人物设定 ===
-人物描述：
-{self.description}
+**角色名称**: {self.character_name}
 
-人物属性（结构化设定，仅用于参考，不要机械复述）：
-{json.dumps(self.attributes, ensure_ascii=False, indent=2)}
+---
 
-【信息来源：CHARACTER_ATTRIBUTES.md - 属性字段含义说明】
+### 1. 深度角色设定 (Character Profile)
+
+**【核心档案】**
+- 描述: {self.description}
+- 当前状态/属性: {json.dumps(self.attributes, ensure_ascii=False)}
+{style_key}
+
+**【扮演指南】**
 {attr_guide}
+- 语言风格：请严格模仿角色的口癖、用词习惯和语调。
+- 思维逻辑：基于角色的智力、性格和过往经历来决策，而非基于最优解。
 
-【信息来源：SCENE.md - 场景设定】
-=== 场景设定 ===
+---
+
+### 2. 当前情境 (Current Context)
+
+**【环境与事件】**
 {scene_content}
+
+**【在场人员】**
 {player_role_info}
+
+**【剧情记忆】**
 {history_info}
-=== 重要要求 ===
-1. 你是一个独立的智能体，需要根据你的角色设定、当前场景和玩家指令做出反应
-2. **玩家角色信息**：请特别注意场景中提到的玩家角色，理解玩家指令的上下文和意图
-3. 你的响应应该符合角色的性格、背景和说话风格
-4. 你需要考虑场景中的重大事件和当前状态
-5. 你的状态可能会因为指令和场景变化而改变
-6. 注意区分表/里信息：
-   - 表信息（surface）：玩家可见的直观状态
-   - 里信息（hidden）：隐藏的推演信息，帮助你理解角色的真实想法
-7. 只有在状态确实发生变化时才提供 state_changes，否则可以省略
-8. **⚠️ 关键：不要过快推进剧情**
-   - 只执行玩家指令中的具体行动，不要继续推进后续剧情
-   - 如果执行过程中遭遇事件（发现敌人、线索、障碍、异常等），立即停止并描述遭遇的情况
-   - 让玩家有机会对遭遇的事件做出反应，而不是自动继续推进
-9. **主动观察环境变化**
-   - 在执行指令时，要主动观察和描述环境中的变化
-   - 主动提示值得注意的情况（天气、声音、光线、物品、人物、地形等），不要等玩家提问
-   - 让玩家了解当前的环境状态，减少需要提问的情况
+
+---
+
+### 3. 核心指令 (Prime Directives)
+
+1.  **绝对的角色沉浸**: 你不仅是文本生成器，你是 {self.character_name} 本人。任何回复必须符合角色人设，禁止跳出角色（OOC）。
+2.  **行动意图边界 (关键)**: 
+    - 你**只能**描述你“试图”做的动作或你说的台词。
+    - **严禁**描述行动的后果、环境的反馈或其他角色的反应。
+    - *错误示例*: "我一拳打倒了守卫。" (描述了结果)
+    - *正确示例*: "我握紧拳头，瞄准守卫的下巴挥去。" (仅描述意图)
+3.  **信息分层**:
+    - **Surface (表层)**: 玩家和其他角色能看到、听到的内容。
+    - **Hidden (里层)**: 你的真实心理活动、战术盘算或对他人的隐秘看法。
+4.  **响应限制**: 保持简练，单次响应控制在2-3句以内，等待其他玩家或导演的反馈。
+
+---
+
+### 4. 输出协议 (Output Protocol)
+
+请输出严格的 JSON 格式：
+
+{{
+    "response": {{
+        "dialogue": "角色的语言内容（如果此刻不说话则留空）",
+        "action_intent": "角色的肢体动作或行动尝试（不做结果判定）"
+    }},
+    "hidden": {{
+        "inner_monologue": "基于性格的心理活动（用于解释为何做出上述行动，仅导演可见）",
+    }}
+}}
+
+**系统强调**: 不要自行生成 state_changes 或 execution_result，那是导演（Director）的工作。
 """
         return prompt
 

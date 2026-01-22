@@ -1,0 +1,48 @@
+{
+  "id": "monster_field_002",
+  "name": "田野魔物",
+  "type": "野兽类魔物",
+  "level": "中等",
+  "description": "与田野中的魔物相同，但在这里出现频率更高",
+  "attributes": {
+    "hp": 150,
+    "attack": 25,
+    "defense": 15,
+    "special_abilities": ["快速突袭", "撕咬"]
+  },
+  "appearance_conditions": {
+    "time_condition": "下午或傍晚",
+    "location_condition": "田野深处（当前房间）",
+    "behavior_condition": "玩家指令包含\"前进\"、\"深入\"、\"探索\"等",
+    "state_condition": "无特殊要求",
+    "random_factor": "50%概率",
+    "plot_need": "需要战斗推进剧情时"
+  },
+  "battle_description_template": "一只魔物从被破坏的谷仓中冲了出来！它的眼神更加凶狠，显然这里是它的地盘。",
+  "battle_effects": {
+    "on_victory": {
+      "rewards": "获得经验值和魔物材料",
+      "scene_changes": "房间中的威胁减少",
+      "unlocked_events": ["发现魔物巢穴"],
+      "possible_transitions": ["room_002_003（如果击败足够多的魔物）"]
+    },
+    "on_defeat": {
+      "consequences": "角色受伤，可能撤退",
+      "scene_changes": "魔物继续威胁",
+      "possible_transitions": ["room_002_001（撤退到入口）或scene_001（撤退到村庄）"]
+    }
+  },
+  "director_hints": {
+    "when_to_appear": "当玩家在房间中探索时",
+    "how_to_describe": "强调这里是魔物的聚集地",
+    "battle_pacing": "中等难度",
+    "notes": "为发现巢穴做铺垫"
+  },
+  "bindings": [
+    {
+      "bind_type": "room",
+      "bind_target": "room_002_002"
+    }
+  ]
+}
+

@@ -39,25 +39,17 @@ class ConversationHistory:
             # 确保目录存在
             os.makedirs(os.path.dirname(history_file), exist_ok=True)
             
-            # 读取现有历史（如果存在）
-            history = []
-            if os.path.exists(history_file):
-                try:
-                    with open(history_file, "r", encoding="utf-8") as f:
-                        history = json.load(f)
-                except:
-                    pass
-            
-            # 添加新记录
-            history.append({
+            # 每个步骤只保存一条记录（该步骤创建时的指令和摘要）
+            # 如果步骤已存在历史记录，覆盖而不是追加
+            record = {
                 "step": step,
                 "instruction": instruction,
                 "summary": summary
-            })
+            }
             
-            # 保存
+            # 保存（每个步骤只有一条记录）
             with open(history_file, "w", encoding="utf-8") as f:
-                json.dump(history, f, ensure_ascii=False, indent=2)
+                json.dump([record], f, ensure_ascii=False, indent=2)
             
             return True
         except Exception as e:

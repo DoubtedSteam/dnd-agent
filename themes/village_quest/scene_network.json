@@ -1,0 +1,130 @@
+{
+  "scene_network": {
+    "scene_001": [
+      {
+        "target": "scene_002",
+        "type": "scene",
+        "trigger_events": ["event_001"],
+        "prerequisite": null,
+        "description": "前往田野"
+      },
+      {
+        "target": "scene_003",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "前往村庄酒馆"
+      },
+      {
+        "target": "scene_001",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "停留在村庄广场"
+      }
+    ],
+    "scene_002": [
+      {
+        "target": "scene_001",
+        "type": "scene",
+        "trigger_events": ["event_005"],
+        "prerequisite": null,
+        "description": "返回村庄"
+      },
+      {
+        "target": "scene_002",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "继续在田野探索"
+      },
+      {
+        "target": "room_002_001",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "进入田野入口"
+      }
+    ],
+    "scene_003": [
+      {
+        "target": "scene_001",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "离开酒馆"
+      },
+      {
+        "target": "scene_003",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "继续在酒馆休息"
+      }
+    ]
+  },
+  "room_network": {
+    "room_002_001": [
+      {
+        "target": "room_002_002",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "深入田野"
+      },
+      {
+        "target": "scene_001",
+        "type": "scene",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "返回村庄"
+      },
+      {
+        "target": "room_002_001",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "停留在入口"
+      }
+    ],
+    "room_002_002": [
+      {
+        "target": "room_002_001",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "返回入口"
+      },
+      {
+        "target": "room_002_003",
+        "type": "room",
+        "trigger_events": ["event_003"],
+        "prerequisite": "击败田野中的魔物",
+        "description": "进入魔物巢穴"
+      },
+      {
+        "target": "room_002_002",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "继续在深处探索"
+      }
+    ],
+    "room_002_003": [
+      {
+        "target": "room_002_002",
+        "type": "room",
+        "trigger_events": [],
+        "prerequisite": null,
+        "description": "离开巢穴"
+      },
+      {
+        "target": "room_002_003",
+        "type": "room",
+        "trigger_events": ["event_004"],
+        "prerequisite": null,
+        "description": "在巢穴中战斗"
+      }
+    ]
+  }
+}

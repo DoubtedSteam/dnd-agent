@@ -1,0 +1,14 @@
+{
+  "scene_id": "scene_002",
+  "room_id": null,
+  "state_changes": {
+    "enter_time": 1200.0,
+    "monsters": {
+      "appeared_monsters": [
+        "monster_field_001"
+      ],
+      "monster_description": "一只大型野兽类的田野魔物从庄稼中冲出，它有着锋利的爪子和强壮的身体，行动敏捷，发出低沉的咆哮，准备攻击。"
+    }
+  },
+  "triggered_events": []
+}

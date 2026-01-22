@@ -55,8 +55,21 @@ class SaveManager:
         source_dir = os.path.join(self.base_dir, self.config.SAVE_DIR, theme, from_step)
         target_dir = os.path.join(self.base_dir, self.config.SAVE_DIR, theme, next_step)
         
+        # 如果源目录不存在，尝试从初始场景和角色文件创建0_step
         if not os.path.exists(source_dir):
-            return None
+            if from_step == "0_step":
+                # 尝试初始化0_step
+                if self._initialize_0_step(theme):
+                    # 初始化成功，源目录现在应该存在了
+                    if not os.path.exists(source_dir):
+                        print(f"初始化0_step失败，源目录不存在: {source_dir}")
+                        return None
+                else:
+                    print(f"无法初始化0_step，源目录不存在: {source_dir}")
+                    return None
+            else:
+                print(f"源步骤目录不存在: {source_dir}")
+                return None
         
         try:
             # 创建目标目录
@@ -75,7 +88,76 @@ class SaveManager:
             return next_step
         except Exception as e:
             print(f"创建新存档步骤失败: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+    
+    def _initialize_0_step(self, theme: str) -> bool:
+        """
+        初始化0_step目录（基于新剧本系统）
+        
+        Args:
+            theme: 主题
+        
+        Returns:
+            是否初始化成功
+        """
+        try:
+            from services.script_manager import ScriptManager
+            from services.scene_state_manager import SceneStateManager
+            
+            # 创建0_step目录
+            step_dir = os.path.join(self.base_dir, self.config.SAVE_DIR, theme, "0_step")
+            os.makedirs(step_dir, exist_ok=True)
+            
+            # 初始化剧本管理器和场景状态管理器
+            script_manager = ScriptManager(self.config)
+            scene_state_manager = SceneStateManager(self.config)
+            
+            # 获取起始场景ID
+            starting_scene_id = script_manager.get_starting_scene_id(theme)
+            if not starting_scene_id:
+                print(f"无法获取起始场景ID: theme={theme}")
+                return False
+            
+            # 设置初始场景ID
+            scene_state_manager.set_current_scene(theme, "0_step", starting_scene_id)
+            scene_state_manager.set_current_room(theme, "0_step", None)  # 初始在一级场景中
+            
+            # 初始化场景状态
+            initial_state = {
+                "scene_id": starting_scene_id,
+                "room_id": None,
+                "state_changes": {},
+                "triggered_events": []
+            }
+            state_file = os.path.join(step_dir, "SCENE_STATE.json")
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(initial_state, f, ensure_ascii=False, indent=2)
+            
+            # 从themes目录复制所有角色文件
+            # 优先从新格式目录查找：themes/{theme}/characters/
+            source_characters_dir = os.path.join(self.base_dir, self.config.CHARACTER_CONFIG_DIR, theme, "characters")
+            if not os.path.exists(source_characters_dir):
+                # 兼容旧格式：themes/{theme}/
+                source_characters_dir = os.path.join(self.base_dir, self.config.CHARACTER_CONFIG_DIR, theme)
+            
+            if os.path.exists(source_characters_dir):
+                for item in os.listdir(source_characters_dir):
+                    if item.endswith('.json') and not item.startswith('.'):
+                        # 排除非角色卡文件
+                        if item in ['core_events.json', 'random_events.json', 'scene_network.json', 'monster_bindings.json']:
+                            continue
+                        source_char = os.path.join(source_characters_dir, item)
+                        target_char = os.path.join(step_dir, item)
+                        shutil.copy2(source_char, target_char)
+            
+            return True
+        except Exception as e:
+            print(f"初始化0_step失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
     
     def list_steps(self, theme: str) -> List[str]:
         """
